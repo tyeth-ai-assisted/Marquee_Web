@@ -17,7 +17,7 @@
  */
 
 export const DISPLAY_PRESETS = {
-  // Adafruit MagTag: 2.9" mono e-ink, SSD1680. The panel scans portrait —
+  // Adafruit MagTag: 2.9" e-ink, SSD1680. The panel scans portrait —
   // Adafruit_SSD1680(128, 296) — and the config ships rotation 0: the firmware's
   // magtag panel entry already presents that buffer as the 296×128 landscape
   // the product is used in, so the file states the native buffer and no step on
@@ -28,14 +28,20 @@ export const DISPLAY_PRESETS = {
   // spelled here as D<n> because that is the only form parsePin() accepts. There is
   // no external SRAM, and MOSI/SCK are -1: the panel is on the board's own SPI bus,
   // which the firmware already knows, so nothing is stated for them.
+  //
+  // Four greys by default. The MagTag's panel is a grayscale4 part (the firmware's older
+  // MagTag entry already runs it in grayscale4 even when asked for mono), and the greys
+  // are what let a chart's grid and a gauge's track read as grey rather than as a
+  // stipple, and anti-aliased lines land on a real shade. The cost is a 4-bit BMP (about
+  // 25 KB as base64, well inside the firmware's 80 KB) and a slower refresh.
   magtag: {
     label: 'MagTag 2.9"',
-    spec: '296×128 · mono · SSD1680',
+    spec: '296×128 · 4 greys · SSD1680',
     cardLabel: 'MagTag 2.9"',
-    cardMeta: '296×128 · mono · SSD1680',
-    terms: 'magtag 2.9 esp32-s2 mono ssd1680',
+    cardMeta: '296×128 · 4 greys · SSD1680',
+    terms: 'magtag 2.9 esp32-s2 mono gray grey grayscale ssd1680',
     photo: 'img/panels/magtag.jpg',   // adafruit.com product 4800
-    preset: '128x296', rotation: '0', mode: 'mono',
+    preset: '128x296', rotation: '0', mode: 'gray4',
     name: 'epd0', driver: 'SSD1680', panel: 'magtag',
     pins: { busy: 'D5', dc: 'D7', rst: 'D6', cs: 'D8', sramCs: '-1', mosi: '-1', sck: '-1', bus: 0 },
   },
@@ -260,4 +266,12 @@ export function searchPresets(query, keys = PRESET_KEYS) {
     return `${p.label} ${p.cardLabel || ''} ${p.spec} ${p.cardMeta || ''} ${p.terms}`
       .toLowerCase().includes(q);
   });
+}
+
+/**
+ * True when some catalogued panel with this firmware id ships in four greys, i.e. the
+ * glass can show them even if this display was set up in mono.
+ */
+export function panelShowsGreys(panel) {
+  return Object.values(DISPLAY_PRESETS).some((p) => p.panel === panel && p.mode === 'gray4');
 }

@@ -30,7 +30,7 @@ A MagTag on the group `kitchen-board`:
     "width": 128,
     "height": 296,
     "rotation": 0,
-    "mode": "mono"
+    "mode": "grayscale4"
   },
   "interface": {
     "type": "spi_epd",
