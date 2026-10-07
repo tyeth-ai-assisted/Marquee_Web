@@ -30,6 +30,12 @@ own, at the size it is drawn, with the panel's default or its own setting
 (`public/js/canvas/imagedither.js`). The whole panel is then snapped to the nearest
 palette colour, so text, charts and shapes are never dithered.
 
+Text under 8 px in the editor's Mono, Sans or Serif is drawn from bitmap fonts rather
+than by the browser: Tom Thumb 3×5 for 4–6 px and the classic Adafruit GFX 5×7 for 7 px
+(`public/js/canvas/pixelfont.js`, generated from the Adafruit GFX Library by
+`scripts/gen-pixelfonts.mjs`). Every pixel is ink or paper, and the result is the same
+on every operating system, where the browser's generic fonts are not.
+
 `bitmap.js` is a pure-JS port of a subset of the ImageMagick CI pipeline and implements the following `magick` (ImageMagick) command only:
 ```
 magick in.png -dither FloydSteinberg -define dither:diffusion-amount=N% \
