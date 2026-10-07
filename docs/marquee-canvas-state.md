@@ -87,6 +87,41 @@ refreshes the time when a new image is pushed.
 `text` is not saved: it is `timeValue`, or the preset's example before the first read.
 `normalizeDatetimeAttrs()` is shared by the factory and `serialize()`, so the two agree.
 
+### The `feedimage` element
+
+The toolbox's **Linked image** prop, and what a placed **Image** becomes when its inspector's
+"Connect to IO Feed" is used. A picture read from an Adafruit IO feed whose value is a
+**base64-encoded image** — the latest frame from a doorbell or bird-feeder camera, say, or
+anything dropped on a feed through IO's own uploader. Re-read through `refreshFeedElements()`
+like every other binding, once per push and per live take, and decoded in the browser.
+
+The value may be raw base64 or a `data:` URL; the format is read off the first bytes
+(`public/js/core/feedimage.js`), never off a declared type, and only **PNG, JPEG, GIF and BMP**
+are accepted. A feed whose value is not a picture is refused at bind time, and a reading that
+is not a picture leaves the previous one in place. **The feed must have history OFF**: history
+caps a datum at 1 KB and no picture fits; off, the ceiling is 512 KB (`IO_MAX_NO_HISTORY`),
+and that is the size of image this element can show.
+
+```json
+{"etype":"feedimage","x":8,"y":8,"w":120,"h":90,"fit":"contain","feedKey":"drop-image","feedName":"drop-image",
+ "src":"data:image/png;base64,iVBORw0KGgo…","natW":550,"natH":248}
+```
+
+| field | meaning |
+|---|---|
+| `w`, `h` | the **frame**, in panel pixels — the thing the user sizes. Every picture the feed delivers is placed into this box, so a feed whose frames swing between portrait and landscape neither ratchets the element smaller nor runs it off the panel. |
+| `fit` | how a picture is placed in the frame: `contain` (whole picture, centred, bars where the shape differs — the default), `cover` (fills the frame, trimming the edges) or `stretch`. |
+| `feedKey`, `feedName` | as on a label. A feed shared from another account is `owner/key`. |
+| `src` | the last picture, as a data URL of its sniffed type; `null` before the first read. A **sample** (see `core/samples.js`), as are `natW` and `natH`. |
+| `natW`, `natH` | the picture's own size, from which `fit` places it. |
+
+Unlinking a feed image that holds a picture turns it back into a plain `image` element,
+sized and placed exactly where the frame was drawing it; a `cover` fit's window is baked
+into the static image's own picture, so what was on the glass stays on the glass without
+the document learning a crop field. The decoded `<img>` is never saved;
+the data URL is enough to rebuild it, and `deserialize()` waits for that decode the way it
+waits for a static image's.
+
 ## Cadence — why it is not the autosave
 
 `doc.js` debounces its save at 400ms, which is right for localStorage and would be one

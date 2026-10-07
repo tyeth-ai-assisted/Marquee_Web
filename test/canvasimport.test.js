@@ -111,3 +111,32 @@ test('fitDoc: onto the same size is a no-op', () => {
   const doc = { version: 1, display: {}, elements: [label(5, 7, { width: 33 })] };
   assert.deepEqual(fitDoc(doc, { w: 296, h: 128 }, { w: 296, h: 128 }), doc);
 });
+
+test('a feed image loads with or without a picture; a remote picture is dropped, the frame kept', () => {
+  const frame = { etype: 'feedimage', x: 0, y: 0, w: 100, h: 80, fit: 'contain', feedKey: 'doorbell', feedName: 'Doorbell' };
+  const r = validateCanvasDoc(docText({ elements: [
+    { ...frame },                                                      // bound, nothing read yet
+    { ...frame, src: null, natW: null, natH: null },                   // as serialize() writes that
+    { ...frame, src: 'data:image/jpeg;base64,/9j/AAAA', natW: 4, natH: 3 },
+    { ...frame, src: 'https://example.com/latest.jpg', natW: 4, natH: 3 },
+  ] }));
+  assert.equal(r.ok, true);
+  assert.equal(r.doc.elements.length, 4, 'every frame survives — the picture is a reading, not the design');
+  assert.equal(r.warnings.length, 1);
+  assert.match(r.warnings[0], /Element 4 .*picture was dropped/);
+  const dropped = r.doc.elements[3];
+  assert.equal(dropped.src, null);
+  assert.equal(dropped.natW, null);
+  assert.equal(dropped.feedKey, 'doorbell');
+  assert.equal(r.doc.elements[2].src, 'data:image/jpeg;base64,/9j/AAAA');
+});
+
+test('fitDoc scales a feed image frame like a static image', () => {
+  const doc = { version: 1, display: {}, elements: [
+    { etype: 'feedimage', x: 0, y: 0, w: 148, h: 64, fit: 'cover', feedKey: 'cam' },
+  ] };
+  const out = fitDoc(doc, { w: 296, h: 128 }, { w: 148, h: 64 });
+  assert.equal(out.elements[0].w, 74);
+  assert.equal(out.elements[0].h, 32);
+  assert.equal(out.elements[0].fit, 'cover');
+});

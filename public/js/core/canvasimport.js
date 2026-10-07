@@ -19,7 +19,10 @@ import { PALETTES, logicalDimsOf } from '../canvas/palette.js';
  *  a label, which is worse than saying so and leaving it out. */
 export const KNOWN_ETYPES = new Set([
   'label', 'divider', 'image', 'linechart', 'gauge', 'indicator', 'battery', 'datetime',
+  'feedimage',
 ]);
+
+const isDataImage = (src) => typeof src === 'string' && src.startsWith('data:image/');
 
 const ROTATIONS = new Set([0, 90, 180, 270]);
 const DITHERS = new Set(['FloydSteinberg', 'ordered', 'none']);
@@ -94,9 +97,16 @@ export function validateCanvasDoc(text) {
     }
     // A remote URL would taint the stage and break every render after it; an embedded
     // image is the only kind this editor ever writes.
-    if (el.etype === 'image' && !(typeof el.src === 'string' && el.src.startsWith('data:image/'))) {
+    if (el.etype === 'image' && !isDataImage(el.src)) {
       warnings.push(`${at} is an image without embedded data and was skipped.`);
       return;
+    }
+    // A feed image's picture is a reading, so it may legitimately be absent — the frame
+    // is the design and the next read fills it. A picture that IS there is held to the
+    // same rule as a static image's, and dropped (not the element) when it fails.
+    if (el.etype === 'feedimage' && el.src != null && !isDataImage(el.src)) {
+      warnings.push(`${at} is a feed image whose picture is not embedded data; the picture was dropped.`);
+      el = { ...el, src: null, natW: null, natH: null };
     }
     elements.push(el);
   });
@@ -133,6 +143,7 @@ const SIZE_KEYS = {
   datetime: ['fontSize', 'width'],
   divider: ['width', 'height'],
   image: ['w', 'h'],
+  feedimage: ['w', 'h'],
   linechart: ['w', 'h', 'axisFontSize'],
   gauge: ['w', 'ringWidth'],
   indicator: ['w'],

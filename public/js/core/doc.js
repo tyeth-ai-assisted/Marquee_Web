@@ -20,7 +20,7 @@ import { layer, fitZoom, hideDitherPreview } from '../canvas/stage.js';
 import { select } from '../canvas/selection.js';
 import {
   addLabel, addDivider, addLineChart, addGauge, addIndicator, addBattery, addImage, addDatetime,
-  remapColorsToPalette,
+  addFeedImage, feedImageSettled, remapColorsToPalette,
 } from '../canvas/elements.js';
 import { normalizeDatetimeAttrs } from './timefmt.js';
 import { applyDisplayToForm, setResolution, applyDither } from './config.js';
@@ -72,6 +72,17 @@ export function serialize() {
         Object.assign(base, {
           src: n.getAttr('src'), w: Math.round(n.width()), h: Math.round(n.height()),
           natW: n.getAttr('natW'), natH: n.getAttr('natH'),
+        });
+      } else if (etype === 'feedimage') {
+        // The frame and the fit are the design; the picture (src and its natural size)
+        // is the last reading, saved for the same reason a label's feedValue is — so a
+        // new frame on the feed is part of the pushed document. `imageObj` is the
+        // decoded <img> and never leaves the browser; the data URL is enough to get it back.
+        Object.assign(base, {
+          w: n.getAttr('w'), h: n.getAttr('h'), fit: n.getAttr('fit') || 'contain',
+          feedKey: n.getAttr('feedKey') || '', feedName: n.getAttr('feedName') || '',
+          src: n.getAttr('src') ?? null,
+          natW: n.getAttr('natW') ?? null, natH: n.getAttr('natH') ?? null,
         });
       } else if (etype === 'indicator') {
         // Explicit branch: the generic widget shape below is {ink,title,w}+value,
@@ -183,6 +194,10 @@ export function deserialize(doc, { keepDisplay = false } = {}) {
         img.onerror = () => resolve();
         img.src = el.src;
       }));
+    } else if (el.etype === 'feedimage') {
+      // Built at once, with its frame; the saved picture decodes behind it and is
+      // awaited by the same promise as a static image's, for the same reason.
+      loading.push(feedImageSettled(addFeedImage(el)));
     } else {
       // Every factory reads its own attrs off the raw saved object, so the factory
       // is also the deserializer — including addGauge's `value` -> `gaugeValue`

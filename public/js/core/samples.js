@@ -44,6 +44,11 @@
  * `linechart` gives up `series` (the fetched points) and keeps `feeds` (which feeds are
  * bound, which is a design decision) and `data` (the authored sample series, written only
  * when nothing is bound).
+ *
+ * `feedimage` gives up the picture — `src` and the natural size that came with it — on
+ * the same terms as the label's `text`: only while a feedKey says a feed put it there.
+ * Unlinked, the picture it kept is the one the user chose to keep. The frame (`w`, `h`,
+ * `fit`) is the design and always stays.
  */
 export const SAMPLE_KEYS = {
   label: ['feedValue', 'text'],
@@ -53,7 +58,14 @@ export const SAMPLE_KEYS = {
   linechart: ['series'],
   // The time IS the reading, and it changes on every take. Format and zone stay.
   datetime: ['timeValue'],
+  feedimage: ['src', 'natW', 'natH'],
 };
+
+/**
+ * The keys above that are only a reading when the element is bound — see the notes on
+ * `label` and `feedimage`. Everything else in the table is a reading unconditionally.
+ */
+const LINKED_ONLY = new Set(['text', 'src', 'natW', 'natH']);
 
 /**
  * One element with its readings dropped, as a new object — never a mutation. Callers pass
@@ -71,8 +83,8 @@ export function stripSamples(el) {
   if (!keys) return el;
   const out = { ...el };
   for (const k of keys) {
-    // The one conditional in the file: see the note on `label` above.
-    if (k === 'text' && !out.feedKey) continue;
+    // The one conditional in the file: see the notes on `label` and `feedimage` above.
+    if (LINKED_ONLY.has(k) && !out.feedKey) continue;
     delete out[k];
   }
   return out;

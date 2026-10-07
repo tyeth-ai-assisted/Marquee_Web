@@ -14,7 +14,7 @@ import {
   loadImageFile, applyTemplate,
 } from '../canvas/elements.js';
 import { display } from '../canvas/palette.js';
-import { refreshFeedElements } from '../device/feeds.js';
+import { refreshFeedElements, openFeedPicker } from '../device/feeds.js';
 import { refreshInterval, sleepModeFor } from '../core/config.js';
 import { getState, subscribe } from '../core/state.js';
 import { $, $$, show, fmtInterval, toast } from '../core/util.js';
@@ -249,6 +249,9 @@ export function initA7({ onEnter }) {
   });
   $('duplicateBtn').addEventListener('click', duplicateSelected);
   $('addImageBtn').addEventListener('click', () => $('imgInput').click());
+  // A picture from a feed. The picker is the whole flow: it checks the feed's value is
+  // an image, drops the frame, and decodes the first reading into it.
+  $('addFeedImageBtn').addEventListener('click', () => openFeedPicker(null, { mode: 'image' }));
   $('imgInput').addEventListener('change', (e) => {
     loadImageFile(e.target.files[0]);
     e.target.value = '';

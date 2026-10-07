@@ -110,3 +110,28 @@ test('a missing document is never "the same"', () => {
   assert.equal(sameDesign(doc(), null), false);
   assert.equal(sameDesign(null, null), false);
 });
+
+test('a feed image: the picture is the reading, the frame is the design', () => {
+  const frame = { etype: 'feedimage', x: 10, y: 10, w: 120, h: 90, fit: 'contain',
+    feedKey: 'doorbell', feedName: 'Doorbell' };
+  const a = doc({ ...frame, src: 'data:image/jpeg;base64,/9j/AAAA', natW: 640, natH: 480 });
+  const b = doc({ ...frame, src: 'data:image/png;base64,iVBORw0KGgo', natW: 800, natH: 600 });
+  assert.equal(sameDesign(a, b), true, 'a new frame on the feed is not an edit');
+
+  const bare = stripSamples(a.elements[0]);
+  for (const k of SAMPLE_KEYS.feedimage) assert.equal(k in bare, false, `${k} should be stripped`);
+  for (const k of ['w', 'h', 'fit', 'feedKey', 'feedName', 'x', 'y']) assert.deepEqual(bare[k], frame[k]);
+
+  // Resizing the frame, changing the fit, or binding another feed: all edits.
+  assert.equal(sameDesign(a, doc({ ...a.elements[0], w: 200 })), false);
+  assert.equal(sameDesign(a, doc({ ...a.elements[0], fit: 'cover' })), false);
+  assert.equal(sameDesign(a, doc({ ...a.elements[0], feedKey: 'birdfeeder' })), false);
+});
+
+test('an UNLINKED feed image keeps its picture — nobody but the user put it there', () => {
+  // The same rule as the label's `text`: a key is only a reading while a feedKey says a
+  // feed wrote it. Unlinked, swapping the picture is an edit.
+  const el = { etype: 'feedimage', w: 120, h: 90, feedKey: '', src: 'data:image/png;base64,AAAA', natW: 1, natH: 1 };
+  assert.deepEqual(stripSamples(el), el);
+  assert.equal(sameDesign(doc(el), doc({ ...el, src: 'data:image/png;base64,BBBB' })), false);
+});

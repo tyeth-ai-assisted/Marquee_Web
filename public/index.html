@@ -533,6 +533,10 @@
           <button type="button" class="btn prop-btn" id="addGaugeBtn"><span class="tile">◠</span>Gauge</button>
           <button type="button" class="btn prop-btn" id="addImageBtn"><span class="tile">▣</span>Image</button>
           <input type="file" id="imgInput" accept="image/png,image/jpeg,image/bmp,.png,.jpg,.jpeg,.bmp" hidden>
+          <!-- A picture READ FROM A FEED — a camera project's latest frame, published as
+               base64. Re-read on every push and every live take, like linked text. The
+               same binding is reachable from a placed Image's inspector. -->
+          <button type="button" class="btn prop-btn" id="addFeedImageBtn"><span class="tile fa-icon">&#xf0c1;</span>Linked image</button>
           <button type="button" class="btn prop-btn" id="addIndicatorBtn"><span class="tile">◉</span>Indicator</button>
           <button type="button" class="btn prop-btn" id="addBatteryBtn"><span class="tile">▰</span>Battery</button>
           <button type="button" class="btn prop-btn" id="addDivider"><span class="tile">—</span>Divider</button>
