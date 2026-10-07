@@ -126,6 +126,7 @@ and that is the size of image this element can show.
 | `feedKey`, `feedName` | as on a label. A feed shared from another account is `owner/key`. |
 | `src` | the last picture, as a data URL of its sniffed type; `null` before the first read. A **sample** (see `core/samples.js`), as are `natW` and `natH`. |
 | `natW`, `natH` | the picture's own size, from which `fit` places it. |
+| `dither`, `diffusion` | optional, on `feedimage` and `image` alike: this picture's own dither (`FloydSteinberg`, `ordered` or `none`, plus a 0–100 `diffusion` for Floyd–Steinberg). Absent means the picture follows the display's `dither`, which is the default for pictures. Only pictures are dithered; everything else is snapped to the nearest palette colour (`canvas/imagedither.js`). |
 
 Unlinking a feed image that holds a picture turns it back into a plain `image` element,
 sized and placed exactly where the frame was drawing it; a `cover` fit's window is baked

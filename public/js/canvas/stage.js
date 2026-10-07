@@ -13,6 +13,7 @@ import { Konva } from './konva.js';
 import { display, logicalDims, MODE_LABELS, PALETTES, paletteBackground } from './palette.js';
 import { $, toast } from '../core/util.js';
 import { renderBitmap } from './render.js';
+import { withDitheredImages } from './imagedither.js';
 
 /** Resolve a design token to a concrete value — the canvas can't use var(). */
 function cssVar(name, fallback) {
@@ -156,10 +157,21 @@ export function syncDisplayBackground(color = display.background) {
   }
 }
 
+/**
+ * Called after the user picks a new background. Some elements draw their faint parts
+ * relative to the page (elements.js#faintFill), and elements.js already depends on
+ * this module, so it registers here rather than being imported. elements.js registers
+ * while this module may still be loading (the two import each other), so the set lives
+ * behind a hoisted function rather than in a top-level const.
+ */
+function backgroundListeners() { return (backgroundListeners.set ??= new Set()); }
+export function onDisplayBackgroundPicked(fn) { backgroundListeners().add(fn); }
+
 $('bgSwatches')?.addEventListener('click', (e) => {
   const color = e.target.closest('.swatch')?.dataset.color;
   if (!color || color === display.background) return;
   syncDisplayBackground(color);
+  backgroundListeners().forEach((fn) => fn());
   // Autosave listens for 'draw' on the CONTENT layer (doc.js), and bgRect lives on
   // its own layer, so a background change would otherwise never reach canvas.json.
   layer.batchDraw();
@@ -260,18 +272,23 @@ export function syncDitherPreviewBtn() {
 
 /**
  * Composite the canvas at 1:1 with the grid hidden and nothing selected.
- * Returns an undithered canvas — the exact pixels to feed the dither step.
+ *
+ * With `ditherImages`, every picture is first swapped for its dithered version (see
+ * imagedither.js) and drawn without smoothing, so the capture is the panel's pixels in
+ * all but the final snap to the palette: what render.js feeds the BMP encoder. Without
+ * it the capture is the plain scene, for screens that show the artwork itself.
  *
  * Takes a callback for restoring the selection rather than importing select()
  * directly: selection.js already depends on this module, and this is the only
  * back-edge, so it is passed in by the caller instead of closed over.
  */
-export function captureClean({ onDeselect, onReselect } = {}) {
+export function captureClean({ onDeselect, onReselect, ditherImages = false } = {}) {
   const prevZoom = zoom;
   onDeselect?.();
   applyZoom(1);
   gridLayer.visible(false);
-  const canvas = withSoftwareRaster(() => stage.toCanvas({ pixelRatio: 1 }));
+  const shoot = () => withSoftwareRaster(() => stage.toCanvas({ pixelRatio: 1, imageSmoothingEnabled: !ditherImages }));
+  const canvas = ditherImages ? withDitheredImages(layer, shoot) : shoot();
   applyZoom(prevZoom);       // restores zoom and redraws the grid per its setting
   onReselect?.();
   return canvas;

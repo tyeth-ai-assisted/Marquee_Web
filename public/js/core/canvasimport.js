@@ -14,6 +14,7 @@
  */
 
 import { PALETTES, logicalDimsOf, isHexColor } from '../canvas/palette.js';
+import { IMAGE_DITHERS } from '../canvas/imagedither.js';
 
 /** Every etype deserialize() has a factory for. Anything else would silently load as
  *  a label, which is worse than saying so and leaving it out. */
@@ -109,6 +110,14 @@ export function validateCanvasDoc(text) {
     if (el.etype === 'feedimage' && el.src != null && !isDataImage(el.src)) {
       warnings.push(`${at} is a feed image whose picture is not embedded data; the picture was dropped.`);
       el = { ...el, src: null, natW: null, natH: null };
+    }
+    // A picture's own dither. Unknown is not fatal: the picture just follows the panel.
+    if ((el.etype === 'image' || el.etype === 'feedimage') && el.dither !== undefined
+        && !IMAGE_DITHERS.includes(el.dither)) {
+      warnings.push(`${at} has an unknown dither ${JSON.stringify(el.dither)}; it will use the panel default.`);
+      el = { ...el };
+      delete el.dither;
+      delete el.diffusion;
     }
     elements.push(el);
   });

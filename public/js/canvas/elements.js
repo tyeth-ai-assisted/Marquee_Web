@@ -8,9 +8,10 @@
  */
 
 import { Konva } from './konva.js';
-import { display, logicalDims, PALETTES, hexToRGB, neutralShades, isHexColor } from './palette.js';
+import { display, logicalDims, PALETTES, hexToRGB, neutralShades, isHexColor, nearestColor } from './palette.js';
 import {
   layer, tr, snap, zoom, suspendDitherPreview, scheduleDitherRefresh, syncDisplayBackground,
+  onDisplayBackgroundPicked,
 } from './stage.js';
 import { select, refreshProps } from './selection.js';
 import { FA_FAMILY, FA_WEIGHT, iconGlyph, DEFAULT_GAUGE_ICON, onFaReady } from './icons.js';
@@ -19,6 +20,7 @@ import {
 } from '../core/util.js';
 import { normalizeDatetimeAttrs, placeholderText } from '../core/timefmt.js';
 import { fitRect, FEED_IMAGE_FITS } from '../core/feedimage.js';
+import { IMAGE_DITHERS } from './imagedither.js';
 
 let counter = 0;
 export const nextId = () => 'el' + (++counter);
@@ -269,6 +271,69 @@ export function addDatetime(attrs = {}) {
   wireNode(node);
   layer.add(node);
   return node;
+}
+
+// ---------- faint ink -------------------------------------------------------
+//
+// A few things are drawn at part strength so they read as background: a gauge's empty
+// track, a chart's grid. Only pictures are dithered (imagedither.js), and a part-strength
+// ink snapped to the nearest panel colour is just paper. So each is drawn as something
+// the panel can show: a real in-between shade where the palette has one (4 greys), and
+// otherwise a sparse pattern of whole ink pixels.
+
+/** `ink` at `alpha` over the page, as a hex colour. */
+function blendOnPage(ink, alpha) {
+  const a = hexToRGB(ink), b = hexToRGB(display.background);
+  return '#' + a.map((v, i) => Math.round(v * alpha + b[i] * (1 - alpha)).toString(16).padStart(2, '0')).join('');
+}
+
+/** The palette shade a part-strength `ink` reads as, or null when none sits between it and the page. */
+function faintShade(ink, alpha) {
+  const shade = nearestColor(blendOnPage(ink, alpha), PALETTES[display.type]);
+  return shade !== display.background && shade !== ink ? shade : null;
+}
+
+const stipples = new Map();
+/** A 2×2 tile with 1, 2 or 3 ink pixels, the nearest to `alpha` of the page covered. */
+function stipple(ink, alpha) {
+  const n = alpha <= 0.375 ? 1 : alpha <= 0.625 ? 2 : 3;
+  const key = `${ink}|${n}`;
+  if (!stipples.has(key)) {
+    const c = document.createElement('canvas');
+    c.width = 2; c.height = 2;
+    const ctx = c.getContext('2d');
+    ctx.fillStyle = ink;
+    [[0, 0], [1, 1], [1, 0]].slice(0, n).forEach(([x, y]) => ctx.fillRect(x, y, 1, 1));
+    stipples.set(key, c);
+  }
+  return stipples.get(key);
+}
+
+/**
+ * Fill attrs for a shape drawn at part strength. `origin` is where the shape's own
+ * coordinates start inside its group, so the pattern can be shifted onto whole panel
+ * pixels when that is a half-pixel (a gauge's centre, say).
+ */
+function faintFill(ink, alpha, origin = { x: 0, y: 0 }) {
+  const shade = faintShade(ink, alpha);
+  if (shade) return { fill: shade };
+  return {
+    fillPatternImage: stipple(ink, alpha), fillPatternRepeat: 'repeat',
+    fillPatternX: -(origin.x - Math.floor(origin.x)), fillPatternY: -(origin.y - Math.floor(origin.y)),
+  };
+}
+
+/** The faint parts are relative to the page, so they are redrawn when it changes. */
+onDisplayBackgroundPicked(() => {
+  layer.find('.element').forEach((n) => {
+    if (n.getAttr('etype') === 'gauge' || n.getAttr('etype') === 'linechart') rebuildWidget(n);
+  });
+});
+
+/** Stroke attrs for a 1px line at part strength: the shade, or ink dashed one pixel in three. */
+function faintStroke(ink, alpha) {
+  const shade = faintShade(ink, alpha);
+  return shade ? { stroke: shade } : { stroke: ink, dash: [1, 2] };
 }
 
 // ---------- line chart ------------------------------------------------------
@@ -552,7 +617,7 @@ function buildLineChart(g) {
     const y = Math.round(py(t)) + 0.5;
     g.add(new Konva.Line({
       points: [plot.x, y, showGrid ? plot.x + plot.w : plot.x + 3, y],
-      stroke: ink, strokeWidth: 1, opacity: showGrid ? 0.35 : 1,
+      strokeWidth: 1, ...(showGrid ? faintStroke(ink, 0.35) : { stroke: ink }),
     }));
     g.add(new Konva.Text({
       text: tickLabels[i], fontSize: tickFont, fontFamily: axisFamily, fill: ink,
@@ -567,7 +632,7 @@ function buildLineChart(g) {
     for (let c = 1; c < cols; c++) {
       const x = Math.round(plot.x + (c / cols) * plot.w) + 0.5;
       g.add(new Konva.Line({
-        points: [x, plot.y, x, plot.y + plot.h], stroke: ink, strokeWidth: 1, opacity: 0.35,
+        points: [x, plot.y, x, plot.y + plot.h], strokeWidth: 1, ...faintStroke(ink, 0.35),
       }));
     }
   }
@@ -797,9 +862,9 @@ function buildGauge(g) {
   const arc = { x: cx, y: cy, innerRadius: r - thickness, outerRadius: r, rotation: GAUGE_START };
 
   // The empty track is drawn faintly rather than omitted: without it, a low reading
-  // gives no clue how much scale is left, and on a mono panel opacity is the only
-  // way to say "this part is the background".
-  g.add(new Konva.Arc({ ...arc, angle: GAUGE_SWEEP, fill: ink, opacity: 0.25 }));
+  // gives no clue how much scale is left. On a mono panel a stipple of ink is the only
+  // way to say "this part is the background" (see faintFill).
+  g.add(new Konva.Arc({ ...arc, angle: GAUGE_SWEEP, ...faintFill(ink, 0.25, { x: cx, y: cy }) }));
   if (frac !== null && frac > 0) {
     g.add(new Konva.Arc({ ...arc, angle: GAUGE_SWEEP * frac, fill: valueInk }));
   }
@@ -1074,6 +1139,23 @@ export function addBattery(attrs = {}) {
 // ---------- image -----------------------------------------------------------
 
 const IMG_MAX_BYTES = 25 * 1024 * 1024; // 25 MB per file
+
+/**
+ * A picture's own dither, from saved attrs. Left unset for 'inherit' (or anything this
+ * editor doesn't know), which is how a picture that follows the panel default is stored —
+ * see imagedither.js.
+ */
+function applyImageDither(node, attrs) {
+  if (IMAGE_DITHERS.includes(attrs.dither) && attrs.dither !== 'inherit') {
+    node.setAttr('dither', attrs.dither);
+    if (attrs.dither === 'FloydSteinberg' && Number.isFinite(attrs.diffusion)) {
+      node.setAttr('diffusion', clamp(Math.round(attrs.diffusion), 0, 100));
+    }
+  }
+}
+
+/** The dither attrs to carry across when a picture changes element type. */
+const imageDitherAttrs = (n) => ({ dither: n.getAttr('dither'), diffusion: n.getAttr('diffusion') });
 const IMG_TYPES = ['image/png', 'image/jpeg', 'image/bmp', 'image/x-ms-bmp'];
 
 export function addImage(imageObj, attrs = {}) {
@@ -1097,6 +1179,7 @@ export function addImage(imageObj, attrs = {}) {
   node.setAttr('natW', iw);
   node.setAttr('natH', ih);
   if (attrs.src) node.setAttr('src', attrs.src); // data URL kept for save/load
+  applyImageDither(node, attrs);
   wireNode(node);
   layer.add(node);
   return node;
@@ -1263,6 +1346,7 @@ export function addFeedImage(attrs = {}) {
   // An already-decoded picture (the static-image conversion below) shows at once; a
   // saved data URL decodes in the background and the frame fills in when it lands.
   if (attrs.imageObj) g.setAttr('imageObj', attrs.imageObj);
+  applyImageDither(g, attrs);
   buildFeedImage(g);
   wireNode(g);
   layer.add(g);
@@ -1280,6 +1364,7 @@ export function imageToFeedImage(node, attrs = {}) {
     x: node.x(), y: node.y(), w: Math.round(node.width()), h: Math.round(node.height()),
     src: node.getAttr('src'), natW: node.getAttr('natW'), natH: node.getAttr('natH'),
     imageObj: node.image(),
+    ...imageDitherAttrs(node),
     ...attrs,
   });
   g.zIndex(node.zIndex());
@@ -1312,7 +1397,7 @@ export function feedImageToImage(g) {
     img = c;
     src = c.toDataURL('image/png');
   }
-  const node = addImage(img, { x: g.x() + r.x, y: g.y() + r.y, w: r.w, h: r.h, src });
+  const node = addImage(img, { x: g.x() + r.x, y: g.y() + r.y, w: r.w, h: r.h, src, ...imageDitherAttrs(g) });
   node.zIndex(g.zIndex());
   g.destroy();
   return node;

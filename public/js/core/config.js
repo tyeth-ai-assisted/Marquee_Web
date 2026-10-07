@@ -35,7 +35,7 @@ const CONFIG_FIELDS = [
 const DITHER_HINTS = {
   FloydSteinberg: 'Error diffusion — best for photos and gradients. Tune diffusion to taste between "too contrasty" (lower) and "too snowy" (higher).',
   ordered: 'Structured Bayer pattern. Not ideal for photos — it tends to lose edge detail — but gives a clean look for flat artwork and diagrams. Smaller maps give a coarser texture.',
-  none: 'No dithering — each pixel snaps to the nearest palette colour. Good for text, high-contrast line art and bold flat graphics.',
+  none: 'No dithering — each pixel snaps to the nearest palette colour. Good for logos, high-contrast line art and bold flat graphics.',
 };
 
 /** The sleep timer, in seconds. The design calls this the refresh interval. */
