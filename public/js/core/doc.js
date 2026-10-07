@@ -32,6 +32,17 @@ import {
   $, copyFromButton, toast, escapeHtml, openModal, closeModal, wireModal, segValue, setSegValue, show,
 } from './util.js';
 
+/**
+ * A picture's own dither, for the saved document. Nothing at all when it follows the
+ * panel default, so a document that never used the option is byte-for-byte what it was.
+ */
+function savedImageDither(n) {
+  const dither = n.getAttr('dither');
+  if (!dither) return {};
+  const diffusion = n.getAttr('diffusion');
+  return dither === 'FloydSteinberg' && Number.isFinite(diffusion) ? { dither, diffusion } : { dither };
+}
+
 export function serialize() {
   return {
     version: 1,
@@ -73,7 +84,7 @@ export function serialize() {
         Object.assign(base, {
           src: n.getAttr('src'), w: Math.round(n.width()), h: Math.round(n.height()),
           natW: n.getAttr('natW'), natH: n.getAttr('natH'),
-        });
+        }, savedImageDither(n));
       } else if (etype === 'feedimage') {
         // The frame and the fit are the design; the picture (src and its natural size)
         // is the last reading, saved for the same reason a label's feedValue is — so a
@@ -84,7 +95,7 @@ export function serialize() {
           feedKey: n.getAttr('feedKey') || '', feedName: n.getAttr('feedName') || '',
           src: n.getAttr('src') ?? null,
           natW: n.getAttr('natW') ?? null, natH: n.getAttr('natH') ?? null,
-        });
+        }, savedImageDither(n));
       } else if (etype === 'indicator') {
         // Explicit branch: the generic widget shape below is {ink,title,w}+value,
         // which would drop the feed binding, the condition and the on/off colors.

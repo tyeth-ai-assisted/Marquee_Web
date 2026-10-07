@@ -1,16 +1,16 @@
 /**
  * The render pipeline.
  *
- * The editor captures the canvas at exactly 1:1 and dithers + palette-remaps it
- * right here, in the browser, with bitmap.js — a pure-JS port of the ImageMagick
- * pipeline this app used to shell out to, byte-identical to what `magick` produced
- * (see test/bitmap.test.js). There is no server: the same bytes go to the preview,
- * the export and the panel.
+ * The editor captures the canvas at exactly 1:1, with each picture already dithered on
+ * its own (imagedither.js), and palette-remaps it right here, in the browser, with
+ * bitmap.js — a pure-JS port of the ImageMagick pipeline this app used to shell out to,
+ * byte-identical to what `magick` produced (see test/bitmap.test.js). There is no
+ * server: the same bytes go to the preview, the export and the panel.
  */
 
 import { ioHost, ioLog, bitmapFeedKey, IO_MAX_NO_HISTORY } from '../core/api.js';
 import { display, logicalDims, ditherLabel, PALETTES } from './palette.js';
-import { renderIndexedBmp, RENDER_METHOD } from './bitmap.js';
+import { renderIndexedBmp } from './bitmap.js';
 import { captureClean } from './stage.js';
 import { selected, select } from './selection.js';
 import { refreshFeedElements } from '../device/feeds.js';
@@ -45,14 +45,14 @@ export function renderBitmap() {
   const canvas = captureClean({
     onDeselect: () => select(null),
     onReselect: () => { if (prev) select(prev); },
+    ditherImages: true,
   });
   const w = canvas.width, h = canvas.height;
   const rgba = canvas.getContext('2d').getImageData(0, 0, w, h).data;
-  const { bmp, indices, colormap } = renderIndexedBmp(rgba, w, h, PALETTES[display.type], {
-    method: RENDER_METHOD[display.dither] || 'floyd',
-    diffusion: display.diffusion,
-    orderedMap: display.orderedMap,
-  });
+  // Nearest colour, never a dither: the pictures arrive already dithered (imagedither.js)
+  // and come through unchanged, and text, lines and shapes stay crisp instead of picking
+  // up the error a diffusion pass spreads from every anti-aliased edge.
+  const { bmp, indices, colormap } = renderIndexedBmp(rgba, w, h, PALETTES[display.type], { method: 'none' });
 
   // Preview: the indexed pixels painted back out as truecolor.
   const out = document.createElement('canvas');

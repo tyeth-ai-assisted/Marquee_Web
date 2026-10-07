@@ -19,6 +19,7 @@ import {
 } from '../core/util.js';
 import { normalizeDatetimeAttrs, placeholderText } from '../core/timefmt.js';
 import { fitRect, FEED_IMAGE_FITS } from '../core/feedimage.js';
+import { IMAGE_DITHERS } from './imagedither.js';
 
 let counter = 0;
 export const nextId = () => 'el' + (++counter);
@@ -1074,6 +1075,23 @@ export function addBattery(attrs = {}) {
 // ---------- image -----------------------------------------------------------
 
 const IMG_MAX_BYTES = 25 * 1024 * 1024; // 25 MB per file
+
+/**
+ * A picture's own dither, from saved attrs. Left unset for 'inherit' (or anything this
+ * editor doesn't know), which is how a picture that follows the panel default is stored —
+ * see imagedither.js.
+ */
+function applyImageDither(node, attrs) {
+  if (IMAGE_DITHERS.includes(attrs.dither) && attrs.dither !== 'inherit') {
+    node.setAttr('dither', attrs.dither);
+    if (attrs.dither === 'FloydSteinberg' && Number.isFinite(attrs.diffusion)) {
+      node.setAttr('diffusion', clamp(Math.round(attrs.diffusion), 0, 100));
+    }
+  }
+}
+
+/** The dither attrs to carry across when a picture changes element type. */
+const imageDitherAttrs = (n) => ({ dither: n.getAttr('dither'), diffusion: n.getAttr('diffusion') });
 const IMG_TYPES = ['image/png', 'image/jpeg', 'image/bmp', 'image/x-ms-bmp'];
 
 export function addImage(imageObj, attrs = {}) {
@@ -1097,6 +1115,7 @@ export function addImage(imageObj, attrs = {}) {
   node.setAttr('natW', iw);
   node.setAttr('natH', ih);
   if (attrs.src) node.setAttr('src', attrs.src); // data URL kept for save/load
+  applyImageDither(node, attrs);
   wireNode(node);
   layer.add(node);
   return node;
@@ -1263,6 +1282,7 @@ export function addFeedImage(attrs = {}) {
   // An already-decoded picture (the static-image conversion below) shows at once; a
   // saved data URL decodes in the background and the frame fills in when it lands.
   if (attrs.imageObj) g.setAttr('imageObj', attrs.imageObj);
+  applyImageDither(g, attrs);
   buildFeedImage(g);
   wireNode(g);
   layer.add(g);
@@ -1280,6 +1300,7 @@ export function imageToFeedImage(node, attrs = {}) {
     x: node.x(), y: node.y(), w: Math.round(node.width()), h: Math.round(node.height()),
     src: node.getAttr('src'), natW: node.getAttr('natW'), natH: node.getAttr('natH'),
     imageObj: node.image(),
+    ...imageDitherAttrs(node),
     ...attrs,
   });
   g.zIndex(node.zIndex());
@@ -1312,7 +1333,7 @@ export function feedImageToImage(g) {
     img = c;
     src = c.toDataURL('image/png');
   }
-  const node = addImage(img, { x: g.x() + r.x, y: g.y() + r.y, w: r.w, h: r.h, src });
+  const node = addImage(img, { x: g.x() + r.x, y: g.y() + r.y, w: r.w, h: r.h, src, ...imageDitherAttrs(g) });
   node.zIndex(g.zIndex());
   g.destroy();
   return node;

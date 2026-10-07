@@ -202,11 +202,14 @@ export function panelRefreshSeconds() {
   return Math.round(base + perMpx * (display.width * display.height) / 1e6);
 }
 
-/** Human-readable summary of the active dither method + its parameter. */
+/**
+ * Human-readable summary of the default picture dither + its parameter. Only pictures are
+ * dithered (imagedither.js), so the line says so rather than implying the whole panel is.
+ */
 export function ditherLabel() {
-  if (display.dither === 'none') return 'no dither';
-  if (display.dither === 'ordered') return `ordered o${display.orderedMap}×${display.orderedMap}`;
-  return `Floyd–Steinberg ${display.diffusion}%`;
+  if (display.dither === 'none') return 'pictures not dithered';
+  if (display.dither === 'ordered') return `pictures ordered o${display.orderedMap}×${display.orderedMap}`;
+  return `pictures Floyd–Steinberg ${display.diffusion}%`;
 }
 
 /**

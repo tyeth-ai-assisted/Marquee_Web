@@ -13,6 +13,7 @@ import { Konva } from './konva.js';
 import { display, logicalDims, MODE_LABELS, PALETTES, paletteBackground } from './palette.js';
 import { $, toast } from '../core/util.js';
 import { renderBitmap } from './render.js';
+import { withDitheredImages } from './imagedither.js';
 
 /** Resolve a design token to a concrete value — the canvas can't use var(). */
 function cssVar(name, fallback) {
@@ -260,18 +261,23 @@ export function syncDitherPreviewBtn() {
 
 /**
  * Composite the canvas at 1:1 with the grid hidden and nothing selected.
- * Returns an undithered canvas — the exact pixels to feed the dither step.
+ *
+ * With `ditherImages`, every picture is first swapped for its dithered version (see
+ * imagedither.js) and drawn without smoothing, so the capture is the panel's pixels in
+ * all but the final snap to the palette: what render.js feeds the BMP encoder. Without
+ * it the capture is the plain scene, for screens that show the artwork itself.
  *
  * Takes a callback for restoring the selection rather than importing select()
  * directly: selection.js already depends on this module, and this is the only
  * back-edge, so it is passed in by the caller instead of closed over.
  */
-export function captureClean({ onDeselect, onReselect } = {}) {
+export function captureClean({ onDeselect, onReselect, ditherImages = false } = {}) {
   const prevZoom = zoom;
   onDeselect?.();
   applyZoom(1);
   gridLayer.visible(false);
-  const canvas = withSoftwareRaster(() => stage.toCanvas({ pixelRatio: 1 }));
+  const shoot = () => withSoftwareRaster(() => stage.toCanvas({ pixelRatio: 1, imageSmoothingEnabled: !ditherImages }));
+  const canvas = ditherImages ? withDitheredImages(layer, shoot) : shoot();
   applyZoom(prevZoom);       // restores zoom and redraws the grid per its setting
   onReselect?.();
   return canvas;

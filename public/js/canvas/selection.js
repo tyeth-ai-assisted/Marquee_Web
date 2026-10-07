@@ -9,7 +9,8 @@
  * place that matters and they say so.
  */
 
-import { display, PALETTES, neutralShades } from './palette.js';
+import { display, PALETTES, neutralShades, ditherChipLabel } from './palette.js';
+import { IMAGE_DITHERS, imageDitherOf } from './imagedither.js';
 import { stage, layer, tr, snap, editorOpts, suspendDitherPreview, scheduleDitherRefresh } from './stage.js';
 import {
   isWidget, rebuildWidget, elementColor, setElementColor, wireNode, nextId,
@@ -162,6 +163,31 @@ function bindFeedRow(bind, n, prefix) {
     const name = n.getAttr('feedName') || 'Feed';
     toast(ok ? `${name} = ${readingSummary(n)}` : 'Could not read the feed');
   });
+}
+
+/**
+ * A picture's own dither, offered over the panel default — the rows the static image and
+ * the feed image share. Only pictures are dithered (imagedither.js), so this is where the
+ * choice belongs; the default lives in the dither chip under the panel.
+ */
+function imageDitherRowsHTML(n) {
+  const own = IMAGE_DITHERS.includes(n.getAttr('dither')) ? n.getAttr('dither') : 'inherit';
+  const opts = [
+    ['inherit', `Panel default (${ditherChipLabel()})`],
+    ['FloydSteinberg', 'Floyd–Steinberg'], ['ordered', 'Ordered'], ['none', 'None'],
+  ];
+  const diffusion = imageDitherOf(n.attrs).diffusion;
+  return `
+    <label class="field"><span class="label">Dither</span>
+      <select id="pImgDither">${opts.map(([v, l]) =>
+        `<option value="${v}"${own === v ? ' selected' : ''}>${escapeHtml(l)}</option>`).join('')}
+      </select></label>
+    ${own === 'FloydSteinberg' ? `
+    <div class="prop-row">
+      <span class="label">Diffusion</span>
+      <input type="range" id="pImgDiffusion" min="0" max="100" value="${diffusion}" aria-label="Diffusion amount" style="flex:1">
+      <span class="mono" id="pImgDiffusionLabel" style="font-size:11px; width:34px; text-align:right">${diffusion}%</span>
+    </div>` : ''}`;
 }
 
 /**
@@ -486,6 +512,7 @@ export function refreshProps() {
       <select id="pFiFit">${FEED_IMAGE_FITS.map((f) =>
         `<option value="${f.id}"${(n.getAttr('fit') || 'contain') === f.id ? ' selected' : ''} title="${escapeAttr(f.hint)}">${escapeHtml(f.label)}</option>`).join('')}
       </select></label>
+    ${imageDitherRowsHTML(n)}
     <p class="hint">Each new picture on the feed is placed into this frame. Re-read on every
       push and every live take. Dithered to the panel palette on render — no ink swatch.</p>
     ${bound ? '<button type="button" class="btn btn-sm btn-block" id="pFiUnlink">Unlink from feed</button>' : ''}`;
@@ -510,6 +537,7 @@ export function refreshProps() {
     </div>
     <label class="check-row"><input type="checkbox" id="pLock" checked> Lock aspect ratio</label>
     <button type="button" class="btn btn-sm btn-block" id="pImgReset">Reset to ${natW}×${natH}</button>
+    ${imageDitherRowsHTML(n)}
     <p class="hint">Dithered to the panel palette on render — no ink swatch.</p>
     <!-- The same binding "Linked image" in the toolbox offers, from a picture already placed:
          the image becomes a frame this size, and the feed's pictures are fitted into it. -->
@@ -621,6 +649,22 @@ export function refreshProps() {
   bind('pFiW', (e) => { n.setAttr('w', Math.max(fiMin, Math.round(+e.target.value) || fiMin)); rebuildWidget(n); });
   bind('pFiH', (e) => { n.setAttr('h', Math.max(fiMin, Math.round(+e.target.value) || fiMin)); rebuildWidget(n); });
   bind('pFiFit', (e) => { n.setAttr('fit', e.target.value); rebuildWidget(n); });
+  // Both picture types. 'inherit' is stored as no attr at all, so a picture that follows
+  // the panel saves exactly as it did before per-picture dithering existed.
+  bind('pImgDither', (e) => {
+    const v = e.target.value;
+    n.setAttr('dither', v === 'inherit' ? undefined : v);
+    if (v !== 'FloydSteinberg') n.setAttr('diffusion', undefined);
+    layer.batchDraw();   // autosave listens for 'draw'; the attrs alone redraw nothing
+    refreshProps();
+    scheduleDitherRefresh();
+  });
+  bind('pImgDiffusion', (e) => {
+    n.setAttr('diffusion', +e.target.value);
+    $('pImgDiffusionLabel').textContent = `${+e.target.value}%`;
+    layer.batchDraw();
+    scheduleDitherRefresh();
+  });
   bind('pFiUnlink', () => {
     const name = n.getAttr('feedName') || n.getAttr('feedKey');
     // With a picture, it becomes the plain image it looks like; without one there is

@@ -779,6 +779,7 @@
 }
 .dither-chip:hover:not(:disabled) { background: var(--color-accent-100); }
 .dither-chip .caret { opacity: 0.5; }
+.dither-chip .key { opacity: 0.7; }
 /* Held open while the popover is — same reason as the sleep chip. */
 .dither-chip[aria-expanded="true"] { background: var(--color-accent-100); }
 

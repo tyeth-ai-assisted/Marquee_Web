@@ -610,6 +610,7 @@
             <span class="dither-anchor">
               <button type="button" class="btn dither-chip" id="ditherChip"
                       aria-haspopup="dialog" aria-expanded="false" aria-controls="ditherPop">
+                <span class="key">Pictures</span>
                 <span class="value" id="ditherChipValue">Floyd–Steinberg 85%</span>
                 <span class="caret" aria-hidden="true">▾</span>
               </button>
@@ -617,11 +618,14 @@
               <!-- Dithering lives with the scene, not with the wiring: the device is
                    handed a BMP that has already been dithered by the editor,
                    so this is an authoring decision about how the artwork survives a
-                   1-bit panel — made while looking at the artwork. -->
+                   1-bit panel — made while looking at the artwork. Only pictures are
+                   dithered (canvas/imagedither.js); this is their default, and each
+                   picture can override it in its inspector. -->
               <div class="dither-pop blueprint elev-md hidden" id="ditherPop" role="dialog"
-                   aria-label="Dither" aria-modal="false">
+                   aria-label="Picture dither" aria-modal="false">
                 <i class="corner tl"></i><i class="corner tr"></i><i class="corner bl"></i><i class="corner br"></i>
-                <span class="label">Dither</span>
+                <span class="label">Picture dither</span>
+                <p class="pop-note">The default for every picture. Text, charts and shapes are never dithered: they snap to the nearest panel colour, so they stay crisp.</p>
                 <div class="seg seg-tight" id="ditherSeg">
                   <label class="seg-opt"><input type="radio" name="dmode" value="FloydSteinberg" checked>Floyd–Steinberg</label>
                   <label class="seg-opt"><input type="radio" name="dmode" value="ordered">Ordered</label>
