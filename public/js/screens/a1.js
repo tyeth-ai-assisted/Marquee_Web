@@ -21,6 +21,11 @@
  * for the same reason — see the status section below, which is the longer version of
  * why a stored snapshot could not answer it.
  *
+ * Under the name, the two things that decide what a display does NEXT: whether the
+ * editor is republishing its feed-bound widgets on the board's cycle (the live take in
+ * device.js — ▶ / ❚❚, and a switch), and the sleep schedule it is on, read off its own
+ * SLEEP feed and changeable from the tile. See the live/schedule section below.
+ *
  * It is also where the Adafruit IO account is settled. The add tile is gated on one:
  * setup writes feeds from its first step, so a display added without a checked
  * username and key is a display whose setup cannot finish. See a1c.js.
@@ -33,13 +38,20 @@ import { openFlash } from './a6a.js';
 import { feedKeyIn } from '../core/api.js';
 import { readFeedLast, readFeedData } from '../device/feeds.js';
 import { displayState, readReport, reportIsOverdue } from '../device/cycle.js';
-import { boardReportsState } from '../device/device.js';
+import { boardReportsState, syncLiveUpdates } from '../device/device.js';
+import {
+  parseSleepPayload, reportedSleep, pickSleepSchedule, sleepPayloadFor, scheduleLine, fmtSleepShort,
+} from '../device/schedule.js';
+import { publishToIO } from '../canvas/render.js';
+import { INTERVAL_OPTIONS } from './a7.js';
 import { getState, subscribe } from '../core/state.js';
 import { deviceEntry, navigate, currentScreen } from '../core/router.js';
 import { DISPLAY_PRESETS, presetCardPhoto } from '../device/presets.js';
 import { readPanelCache, writePanelCache } from './a8.js';
 import * as devices from '../device/devices.js';
-import { $, val, escapeHtml, escapeAttr, fmtAgo, fmtLocalTime, fmtLocalDateTime, toast } from '../core/util.js';
+import {
+  $, val, escapeHtml, escapeAttr, fmtAgo, fmtLocalTime, fmtLocalDateTime, toast, setFieldValue,
+} from '../core/util.js';
 
 /**
  * What a tile can say about a device without activating it.
@@ -123,6 +135,7 @@ function deviceTileHTML(rec) {
       <span class="row">${pillHTML(f)}<span class="when">${escapeHtml(f.when)}</span></span>
       <span class="name">${escapeHtml(f.label)}</span>
       <span class="hardware">${escapeHtml(f.hardware)}</span>
+      ${tileLiveHTML(rec)}
     </span>
     <span class="card-actions">
       <button type="button" class="btn btn-sm btn-ghost" data-firmware="${escapeAttr(rec.id)}"
@@ -365,8 +378,246 @@ async function sweepStatus() {
     }
     const r = readReport(data, { fallbackSleepSecs: fallbackSleepFor(rec) });
     reports.set(rec.id, r ? { kind: 'report', r } : { kind: 'silent' });
+    // The same batch says what the board armed, which the schedule line is checked against.
+    boardSleeps.set(rec.id, reportedSleep(data));
     repaintStatus(rec);
+    repaintLive(rec);
   }
+}
+
+// ---------- live updates and the sleep schedule -----------------------------
+//
+// The two settings that decide what a display does next, on the tile so they can be read
+// across the wall and changed without opening each display in turn.
+//
+// LIVE UPDATES are the editor's, not the board's: device.js re-renders the feed-bound
+// widgets and republishes the bitmap on the board's own cycle, for the ACTIVE display, for
+// as long as this tab is open. The switch is a per-record flag (devices.js#livePaused)
+// that liveBlockedBecause() refuses on, so it can be set for any display — it takes effect
+// whenever that display is the one open.
+//
+// THE SCHEDULE is read off each display's own {group}.sleep feed — the window as last
+// published — with the board's own `sleeping` report and then the record's setting as
+// fallbacks (schedule.js#pickSleepSchedule says why in that order). Changing it here
+// publishes a new payload to that feed, the same three fields a push sends, and saves the
+// interval as the display's setting so the next push agrees with it.
+//
+// Session memory only, like the status reads: a schedule can be changed from another
+// browser, and a cached one restored tomorrow would claim a window nobody published.
+
+/** How long a sleep-feed read is good for. The schedule moves far less often than the
+ *  status, so this rides the thumbnail sweep's cadence rather than the status sweep's. */
+const SCHEDULE_TTL_MS = 60000;
+
+/**
+ * id -> what that display's sleep feed said:
+ *
+ *   { kind: 'payload', p }  a schedule — schedule.js#parseSleepPayload() plus `at`
+ *   { kind: 'empty' }       the feed read fine and holds nothing usable
+ *   { kind: 'unreachable' } the read itself failed
+ *
+ * Absent means not asked yet. As with `reports`, the four are kept apart because the tile
+ * says something different for each.
+ */
+const schedules = new Map();
+
+/** id -> what the board last said it slept on (schedule.js#reportedSleep), or null. Filled
+ *  by the status sweep for every other display and by the schedule sweep for the active
+ *  one, whose status feed the status sweep leaves to the watch. */
+const boardSleeps = new Map();
+
+let lastScheduleSweepAt = 0;
+
+/** Bumped by every sweep and every render, as with the other two sweeps. */
+let scheduleRun = 0;
+
+/** This display's sleep feed, derived from its own record — no activation involved. */
+function sleepFeedFor(rec) {
+  return feedKeyIn(rec.settings?.ioGroup, 'sleep');
+}
+
+function scheduleFor(rec) {
+  const e = schedules.get(rec.id);
+  return pickSleepSchedule({
+    feed: e?.kind === 'payload' ? e.p : null,
+    board: boardSleeps.get(rec.id) || null,
+    localSecs: fallbackSleepFor(rec),
+  });
+}
+
+/** The ▶ / ❚❚ switch. It states the setting rather than offering its opposite: a play
+ *  glyph on a display that is live reads as "it is playing", which is the question asked
+ *  of a wall of tiles. aria-pressed carries the same fact to a screen reader. */
+function liveToggleHTML(rec) {
+  const label = devices.deviceLabel(rec);
+  const paused = devices.livePaused(rec);
+  const where = rec.id === devices.activeDeviceId()
+    ? 'This is the display open in the editor, so it applies now.'
+    : 'It applies whenever this display is the one open in the editor.';
+  const title = paused
+    ? `Live updates paused: feed-bound widgets are not republished on the board's cycle. ${where} Click to resume.`
+    : `Live updates on: feed-bound widgets are re-read and republished on the board's own cycle while this tab is open. ${where} Click to pause.`;
+  return `<button type="button" class="live-toggle" data-live="${escapeAttr(rec.id)}"
+      data-paused="${paused}" aria-pressed="${paused ? 'false' : 'true'}"
+      aria-label="Live updates for ${escapeAttr(label)}" title="${escapeAttr(title)}">
+      <span class="live-icon" aria-hidden="true">${paused ? '❚❚' : '▶'}</span>
+      <span class="live-text">${paused ? 'Paused' : 'Live'}</span>
+    </button>`;
+}
+
+/** The schedule in a line, plus the one note it needs when the line is not the whole
+ *  story: nothing published yet, a feed that would not answer, or a board that slept on
+ *  something other than what was published. The long version is the tooltip. */
+function scheduleHTML(rec) {
+  const s = scheduleFor(rec);
+  const e = schedules.get(rec.id);
+  const feed = sleepFeedFor(rec) || 'its sleep feed';
+  let note = '';
+  let title;
+  if (s.source === 'feed') {
+    const at = Number.isFinite(e?.p?.at) ? ` at ${fmtLocalDateTime(new Date(e.p.at))}` : '';
+    title = `As published to ${feed}${at}. The board follows it from its next wake.`;
+    if (s.boardSecs !== null) {
+      note = `board slept ${fmtSleepShort(s.boardSecs)}`;
+      title += ` The board has since reported sleeping ${fmtSleepShort(s.boardSecs)}, so its firmware may not read the sleep feed yet.`;
+    }
+  } else if (s.source === 'board') {
+    title = `As the board last reported it. Nothing usable is on ${feed} yet.`;
+  } else if (!e) {
+    title = `This display's own setting, while ${feed} is checked.`;
+  } else if (e.kind === 'unreachable') {
+    note = 'not confirmed';
+    title = `Could not read ${feed}, so this is the display's own setting.`;
+  } else {
+    note = 'not published';
+    title = `This display's own setting. Nothing is on ${feed} yet: it goes with the next push, or pick an interval here to send it now.`;
+  }
+  return `<span class="sched" title="${escapeAttr(title)}">`
+    + `<span class="sched-text">${escapeHtml(scheduleLine(s))}</span>`
+    + (note ? `<span class="sched-note">${escapeHtml(note)}</span>` : '')
+    + '</span>';
+}
+
+/**
+ * The row under the name. Above the card's open overlay, like .card-actions, or the
+ * overlay would swallow every click on it.
+ *
+ * The picker is a select with a hidden "Change" placeholder rather than a select of the
+ * current value: the current value is already the line beside it, and "Every 15 min"
+ * next to "Sleeps 15 min" is the same fact twice. Choosing an option is the whole edit.
+ */
+function tileLiveHTML(rec) {
+  const label = devices.deviceLabel(rec);
+  const options = INTERVAL_OPTIONS.map((secs) =>
+    `<option value="${secs}">Every ${escapeHtml(fmtSleepShort(secs))} — ${sleepPayloadFor(secs).sleep_mode} sleep</option>`).join('');
+  return `<span class="tile-live">
+      ${liveToggleHTML(rec)}
+      ${scheduleHTML(rec)}
+      <select class="sched-pick" data-sleep="${escapeAttr(rec.id)}"
+        aria-label="Change the sleep schedule for ${escapeAttr(label)}"
+        title="Publish a new sleep schedule to this display's sleep feed">
+        <option value="" selected hidden>Change</option>${options}
+      </select>
+    </span>`;
+}
+
+function tileSlot(id, sel) {
+  return $('a1Grid')?.querySelector(`[data-device="${CSS.escape(id)}"] ${sel}`) || null;
+}
+
+/** Repaint the schedule line and the switch in place. The select is left alone: it may be
+ *  the element with focus, and rebuilding it would drop a keyboard user mid-choice. */
+function repaintLive(rec) {
+  if (!rec) return;
+  const sched = tileSlot(rec.id, '.sched');
+  if (sched) sched.outerHTML = scheduleHTML(rec);
+  const toggle = tileSlot(rec.id, '.live-toggle');
+  if (!toggle) return;
+  const hadFocus = document.activeElement === toggle;
+  toggle.outerHTML = liveToggleHTML(rec);
+  if (hadFocus) tileSlot(rec.id, '.live-toggle')?.focus();
+}
+
+/**
+ * Read every display's sleep feed, and the active display's status feed for what its
+ * board last armed.
+ *
+ * Sequential, behind a TTL, and silent on failure — the same terms as the other two
+ * sweeps, for the same shared rate limit. One datum per feed through `/data?limit=1`: the
+ * sleep feed keeps history, and its newest value is the schedule.
+ */
+async function sweepSchedules() {
+  const run = ++scheduleRun;
+  if (!val('ioUser') || !val('ioKey')) return;
+  const stale = Date.now() - lastScheduleSweepAt >= SCHEDULE_TTL_MS;
+  lastScheduleSweepAt = Date.now();
+
+  for (const rec of devices.listDevices()) {
+    if (run !== scheduleRun || currentScreen() !== 'a1') return;
+    const feed = sleepFeedFor(rec);
+    if (!feed) continue;
+    if (schedules.has(rec.id) && !stale) continue;
+
+    const data = await readFeedData(feed, { limit: 1 });
+    if (run !== scheduleRun) return;
+    if (!data) {
+      // As with status: a schedule already read stays what we last honestly knew.
+      if (!schedules.has(rec.id)) schedules.set(rec.id, { kind: 'unreachable' });
+    } else {
+      const p = data[0] ? parseSleepPayload(data[0].value) : null;
+      schedules.set(rec.id, p ? { kind: 'payload', p: { ...p, at: data[0].createdAt } } : { kind: 'empty' });
+    }
+
+    // The status sweep skips the active display — the watch owns it — so what its board
+    // last armed is read here. One read, only for the comparison.
+    if (rec.id === devices.activeDeviceId()) {
+      const status = statusFeedFor(rec);
+      const sd = status ? await readFeedData(status, { limit: STATUS_BATCH }) : null;
+      if (run !== scheduleRun) return;
+      if (sd) boardSleeps.set(rec.id, reportedSleep(sd));
+    }
+    repaintLive(rec);
+  }
+}
+
+/**
+ * Publish a new schedule for one display, active or not.
+ *
+ * Feed first, setting second: a setting that moved and a publish that failed would leave
+ * the tile and the next push disagreeing about a window the board never received. On
+ * success both move together. Nothing here touches the sleep the board is already in —
+ * the new window applies from its next wake, which is what the toast says.
+ */
+async function changeSchedule(rec, secs) {
+  const feed = sleepFeedFor(rec);
+  const name = devices.deviceLabel(rec);
+  if (!feed) { toast(`${name} has no Adafruit IO group yet — finish its setup first`); return; }
+  const payload = sleepPayloadFor(secs);
+  // publishToIO() says why on failure, naming the feed.
+  const out = await publishToIO(JSON.stringify(payload), feed);
+  if (!out.ok) return;
+
+  // The active display's interval has a DOM home that flushActive() reads back, so it is
+  // written there, with the event, so A7's chip and the record follow. Any other display
+  // has only its record.
+  if (rec.id === devices.activeDeviceId()) setFieldValue('sleepDuration', String(payload.sleep_time));
+  else devices.patchSettings(rec.id, { sleepDuration: String(payload.sleep_time) });
+
+  schedules.set(rec.id, {
+    kind: 'payload',
+    p: { secs: payload.sleep_time, alarmType: payload.alarm_type, mode: payload.sleep_mode, at: Date.now() },
+  });
+  repaintLive(devices.getDevice(rec.id));
+  toast(`${name} now sleeps ${fmtSleepShort(payload.sleep_time)} (${payload.sleep_mode} sleep) — the board picks it up on its next wake`);
+}
+
+/** Flip a display's live updates, and tell the runtime if it is the one running them. */
+function toggleLive(rec) {
+  const paused = !devices.livePaused(rec);
+  devices.patchSettings(rec.id, { livePaused: paused });
+  if (rec.id === devices.activeDeviceId()) syncLiveUpdates();
+  repaintLive(devices.getDevice(rec.id));
+  toast(`Live updates ${paused ? 'paused' : 'on'} for ${devices.deviceLabel(rec)}`);
 }
 
 // ---------- filling the empty tiles -----------------------------------------
@@ -469,6 +720,7 @@ function renderCount(list = devices.listDevices()) {
 function render() {
   sweepRun++;    // whatever a thumbnail sweep was painting into is about to be replaced
   statusRun++;   // and the same for a status sweep
+  scheduleRun++; // and a schedule sweep
   const list = devices.listDevices();
   const draft = devices.getDraft();
 
@@ -555,6 +807,16 @@ export function initA1({ onEnter }) {
       return;
     }
 
+    // The live switch, and the schedule picker. A click on the select only opens it — its
+    // change event below does the work — but it must not fall through to the card's open.
+    const live = e.target.closest('[data-live]');
+    if (live) {
+      const rec = devices.getDevice(live.dataset.live);
+      if (rec) toggleLive(rec);
+      return;
+    }
+    if (e.target.closest('.sched-pick')) return;
+
     // Maintenance on a finished display: the same two setup screens, opened partway. The
     // display is activated first because both screens work on whichever record is active.
     const firmware = e.target.closest('[data-firmware]');
@@ -599,6 +861,18 @@ export function initA1({ onEnter }) {
     navigate(deviceEntry(rec));
   });
 
+  $('a1Grid').addEventListener('change', async (e) => {
+    const pick = e.target.closest('.sched-pick');
+    if (!pick) return;
+    const secs = parseInt(pick.value, 10);
+    // Back to "Change" straight away: the line beside it is what states the schedule.
+    pick.value = '';
+    const rec = devices.getDevice(pick.dataset.sleep);
+    if (!rec || !Number.isFinite(secs)) return;
+    pick.disabled = true;
+    try { await changeSchedule(rec, secs); } finally { pick.disabled = false; }
+  });
+
   // Edit mode, and no continuation: changing the account from here settles a fact
   // about the browser, not a step in a flow, so a successful save just repaints
   // the button. That callback is the only difference from the add tile's path.
@@ -618,7 +892,11 @@ export function initA1({ onEnter }) {
     // and wakes on its own schedule while a picture only changes when something redraws
     // it — and the two sweeps share an account-wide rate limit, so the order they queue
     // in is the order they land in.
+    //
+    // The schedule between them: one small read per display, and the line most likely to
+    // be acted on from here.
     sweepStatus();
+    sweepSchedules();
     sweepThumbs();
   });
 

@@ -3,8 +3,14 @@
 How the editor tells the board how long to sleep. Three fields on an Adafruit IO
 feed, and nothing else.
 
-- **Producer:** `pushToDisplay()` in `public/js/device/device.js`, via
-  `currentSleepPayload()`. Fired by "Push to display" in Act II.
+- **Producers:** two, sharing one payload builder (`sleepPayloadFor()` in
+  `public/js/device/schedule.js`).
+  - `pushToDisplay()` / `queueForNextTake()` in `public/js/device/device.js`, via
+    `currentSleepPayload()`. Fired by "Push to display" in Act II.
+  - The schedule picker on each display's tile in A1 (`changeSchedule()` in
+    `public/js/screens/a1.js`), for any display, active or not. It publishes the sleep
+    feed only — the image feed is untouched — and saves the interval as that display's
+    own setting so the next push agrees with it.
 - **Consumer:** the board's firmware. **Not yet implemented** — see Known gaps.
 
 A feed rather than a field in the panel descriptor: timing is not a property of the
@@ -69,7 +75,7 @@ seconds, and nothing in the UI said so.
 | ≥ 300 s | `deep` | past here the boot stops dominating, and holding RAM and a radio that long is the worse trade |
 
 The first two rows agree, so the implementation is a single comparison at 300 s —
-`sleepModeFor()` in `public/js/core/config.js`, which returns these two spellings
+`sleepModeFor()` in `public/js/device/schedule.js` (re-exported by `core/config.js`), which returns these two spellings
 directly so the label a user sees and the value the board gets cannot drift. The
 60 s row is the reasoning, not a value read from anywhere: nothing in the editor
 reads a keepalive off the board.
@@ -152,7 +158,7 @@ feed, because the sleep window belongs to the sleep already running.
 | floor | `LIVE_MIN_GAP_MS` (30s) between publishes, whatever asked for one |
 | de-dupe | the base64 BMP, byte for byte — an unchanged picture is never republished |
 | cost | one read per bound element (one per series on a chart), plus at most one publish |
-| off switch | none — every display bound to a feed stays live |
+| off switch | per display — the ▶ / ❚❚ switch on its A1 tile (`livePaused` on the record, refused in `liveBlockedBecause()`) |
 
 **Why `sleeping` and not `awake`.** The report means the alarm is armed, so the whole window
 is available and nothing is racing a fetch. It is also the only moment the promotion
@@ -161,9 +167,16 @@ promotes it next cycle rather than holding it. And the firmware stays subscribed
 image feed while it is up, so publishing on `awake` can land mid-take and buy a second
 panel refresh — up to two minutes of one on a driver with BUSY unwired.
 
-It will not publish to a display nobody has pushed to, to a canvas with nothing bound, or
-while a drag or a focused inspector field says someone is mid-edit. Failures are said once
-per session and then logged, like the `canvas-state` mirror.
+It will not publish to a display nobody has pushed to, to a canvas with nothing bound, to
+a display whose live updates are paused, or while a drag or a focused inspector field says
+someone is mid-edit. Failures are said once per session and then logged, like the
+`canvas-state` mirror.
+
+It runs for the **active** display only — the one open in the editor — and only while the
+tab is open. The pause switch is stored per display so it can be set from any tile; it
+takes effect whenever that display is the active one. Switching it back on re-arms the
+take (`syncLiveUpdates()`): at once if a reporting board is asleep right now, otherwise on
+its next `sleeping`, or on the estimated clock for a board that never reports.
 
 It does not wait for anything, and there is nothing it could wait for — this feed
 carries no acknowledgement. Act III's countdown is therefore a client-side estimate
@@ -171,6 +184,24 @@ of the window that was published, not a report of the board's state, until the
 sibling `{group}.status` feed says otherwise. (That feed can still report a `pin`
 alarm the firmware armed on its own; `wakeSource` in `state.js` carries it, and A8
 then runs no clock — see `marquee-status.md`.)
+
+### Reading it back — the A1 tiles
+
+Each display's tile on the list shows the schedule it is on — "Sleeps 15 min · timer ·
+deep sleep" — from, in order:
+
+1. the newest datum on this feed (`GET .../data?limit=1`; the feed keeps history), which
+   is the schedule as **set**;
+2. the board's last `sleeping` report on `{group}.status`, when nothing usable has been
+   published here — its own `sleep_time` and `alarm_type`, never a substituted default;
+3. the display's own `sleepDuration` setting, marked "not published" (or "not confirmed"
+   when the feed could not be read).
+
+The feed outranks the board's report so a change shows the moment it is made — the board
+keeps reporting the old interval until it next wakes. When the board reports a sleep
+**after** the schedule was published and it differs, the tile adds "board slept 5 min":
+the one-line diff described under Known gaps below. `pickSleepSchedule()` in
+`public/js/device/schedule.js` is the whole rule.
 
 ## Known gaps
 

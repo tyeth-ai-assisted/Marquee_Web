@@ -16,7 +16,9 @@ import { navigate } from '../core/router.js';
 import { layer, hideDitherPreview } from '../canvas/stage.js';
 import { select } from '../canvas/selection.js';
 import { resetCounter } from '../canvas/elements.js';
-import { refreshInterval, sleepModeFor } from '../core/config.js';
+import { refreshInterval } from '../core/config.js';
+import { sleepPayloadFor } from './schedule.js';
+import { activeDevice, livePaused } from './devices.js';
 import {
   serialize, invalidateCanvasBaseline, saveCanvasNow, cancelCanvasSave,
 } from '../core/doc.js';
@@ -73,31 +75,16 @@ function debugLine(text) {
  */
 let stateEpoch = 0;
 
-/** The live sleep form, read fresh every time — never snapshotted. A snapshot is
- *  what made the timer look unchangeable: the duration was frozen at the moment the
- *  push was pressed. */
-function currentSleepConfig() {
-  const durSeconds = refreshInterval();
-  // Derived, not read off a control: there is no sleep-mode picker any more,
-  // because the interval already determines the answer (sleepModeFor in config.js).
-  return { mode: sleepModeFor(durSeconds), durSeconds };
-}
-
 /**
- * The sleep window as it goes onto the feed. Three fields and no more.
+ * The sleep window as it goes onto the feed, from the live sleep form — read fresh every
+ * time, never snapshotted. A snapshot is what made the timer look unchangeable: the
+ * duration was frozen at the moment the push was pressed.
  *
- * `alarm_type` is always "timer": the editor no longer offers a wake-on-button
- * choice, and the interval is the only sleep control left. The field stays in the
- * payload so the feed keeps one shape for any consumer already parsing it. The mode
- * derives from the interval (currentSleepConfig). See docs/marquee-sleep.md.
+ * The SHAPE is schedule.js#sleepPayloadFor(), shared with the A1 tiles that publish a
+ * schedule for a display that is not open. See docs/marquee-sleep.md.
  */
 function currentSleepPayload() {
-  const { mode, durSeconds } = currentSleepConfig();
-  return {
-    alarm_type: 'timer',
-    sleep_mode: mode,
-    sleep_time: durSeconds,
-  };
+  return sleepPayloadFor(refreshInterval());
 }
 
 // ---------- countdown -------------------------------------------------------
@@ -897,6 +884,9 @@ function liveBlockedBecause() {
   if (!st.lastWriteAt && !getQueued() && !getPublished().doc) {
     return 'nothing has been pushed to this display yet';
   }
+  // The switch on the A1 tile. After the consent guard so the trail still says when there
+  // was never anything to pause.
+  if (livePaused(activeDevice())) return 'live updates are paused for this display';
   if (!hasFeedBindings()) return 'nothing on this canvas is bound to a feed';
   // renderBitmap() photographs the stage through captureClean(), which deselects, drops
   // the zoom to 1:1 and puts both back — and select(null) rebuilds the inspector by
@@ -1037,6 +1027,32 @@ function armLiveFallback() {
 function noteBitmapOnFeed(bmp) {
   lastPublishedBmp = bmp;
   lastLiveAt = Date.now();
+}
+
+/**
+ * The active display's live updates were switched on or off from its A1 tile.
+ *
+ * Off needs nothing but the timer cleared — liveBlockedBecause() refuses every take while
+ * the flag is set, and a take already rendering finishes rather than being torn down. On
+ * has to put a trigger back, because a skipped take re-arms nothing (see takeLiveTake):
+ *
+ *   board reports    wait for its next `sleeping`, the moment this section is built around
+ *                    — unless it is asleep RIGHT NOW, in which case the window is already
+ *                    ours and waiting would cost a whole cycle of stale numbers.
+ *   board does not   the estimated cycle, exactly as at boot.
+ */
+export function syncLiveUpdates() {
+  if (livePaused(activeDevice())) {
+    clearTimeout(liveTimer);
+    liveTimer = null;
+    liveAgain = false;
+    liveLog('paused from the display list');
+    return;
+  }
+  if (!boardReportsState()) { armLiveFallback(); return; }
+  if (getState().deviceState === 'asleep' && !takeInFlight()) {
+    armLiveTake(LIVE_SETTLE_MS, 'live updates resumed while the board sleeps');
+  }
 }
 
 /** Forget this board's take. A different display has a different panel on a different

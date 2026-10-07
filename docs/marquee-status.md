@@ -14,6 +14,9 @@ required, and nothing else.
     state, which is only ever written for the active device — so every other tile was
     frozen at whatever its board was doing the last time it was open, and a board
     typically freezes just after a push, reading "On air" for good while it slept.
+    The same batch's newest `sleeping` report also supplies the board's own `sleep_time`
+    and `alarm_type` to the tile's schedule line (`reportedSleep()` in
+    `public/js/device/schedule.js`; see `marquee-sleep.md`, "Reading it back").
 
 This exists because nothing else acknowledges anything. Without it the editor is
 left inferring the board's entire life from the sleep window it published —

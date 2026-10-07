@@ -172,6 +172,35 @@ export function isFinished(rec) {
   return rec?.status === 'ready' && !rec.setupStep;
 }
 
+/**
+ * Patch one record's settings, active or not.
+ *
+ * For a field with a DOM home (DEVICE_FIELDS) on the ACTIVE record this is not enough on
+ * its own: flushActive() reads those back off the form and would put the old value back.
+ * Write the field with util.js#setFieldValue() instead, which is the convention for every
+ * programmatic settings write. Fields with no DOM home — `livePaused` — live here only.
+ */
+export function patchSettings(id, patch) {
+  const rec = env.byId[id];
+  if (!rec) return null;
+  rec.settings = { ...rec.settings, ...patch };
+  touch(rec);
+  persist();
+  return rec;
+}
+
+/**
+ * Has this display's live take been paused from its A1 tile?
+ *
+ * Stored on the record rather than in the settings form: it is a switch on the editor's
+ * own behaviour, not a value the board or its config file ever sees, and it has to be
+ * flippable for a display that is not the active one. Absent means live — every record
+ * written before the switch existed keeps the behaviour it had.
+ */
+export function livePaused(rec) {
+  return rec?.settings?.livePaused === true;
+}
+
 export function setSetupStep(id, step) {
   const rec = env.byId[id];
   if (!rec) return;

@@ -21,7 +21,8 @@ import { $, $$, show, fmtInterval, toast } from '../core/util.js';
 
 /**
  * Options offered by "Wake and redraw", in seconds. Must match the option values
- * in index.html — anything not in here renders as "Custom — Ns".
+ * in index.html — anything not in here renders as "Custom — Ns". Exported because each
+ * A1 tile offers the same list for a quick change without opening the display.
  *
  * A minute at a time through the light-sleep range, then coarsening once the
  * intervals are long enough that a minute stops being the difference. The
@@ -32,7 +33,7 @@ import { $, $$, show, fmtInterval, toast } from '../core/util.js';
  * modal that held the numeric field has no entry point — so "Custom" is now purely
  * how a value inherited from an older build gets named.
  */
-const INTERVAL_OPTIONS = [60, 120, 180, 240, 300, 600, 900, 1800, 2700, 3600];
+export const INTERVAL_OPTIONS = [60, 120, 180, 240, 300, 600, 900, 1800, 2700, 3600];
 
 /**
  * What the push actually does: two feed writes the board collects on its own

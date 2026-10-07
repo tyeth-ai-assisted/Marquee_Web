@@ -43,35 +43,10 @@ export function refreshInterval() {
   return Math.max(0, parseInt($('sleepDuration')?.value, 10) || 0);
 }
 
-/**
- * The line between light and deep sleep, in seconds.
- *
- * Sleep mode is DERIVED from the interval rather than picked, because the interval
- * is the only thing the answer depends on — and two authors for one decision is
- * how the editor and the board end up disagreeing (a 15-second refresh set to Deep
- * paid a full boot + re-provision + redraw every fifteen seconds, and nothing said
- * so). Three tiers, which collapse into one comparison:
- *
- *   T < 60s     light. Under the MQTT keepalive the socket survives the nap
- *               outright, so waking costs nothing at all.
- *   60s-300s    light. The socket is gone and the reconnect is MQTT-only — still
- *               far cheaper than the boot + re-provision + EPD redraw a deep wake
- *               pays for.
- *   T >= 300s   deep. Past here the boot stops dominating, and holding RAM and a
- *               radio for five minutes to save one boot is the worse trade.
- *
- * The first two tiers give the same answer, so there is one threshold and it is
- * this one. The 60s tier is the reasoning, not configuration: nothing in this repo
- * reads a device keepalive.
- */
-export const DEEP_SLEEP_THRESHOLD_SECS = 300;
-
-/** The sleep mode for a sleep of `secs`, spelled the way the sleep feed carries it
- *  (docs/marquee-sleep.md). Both the interval picker and the published payload read
- *  this, so the label a user sees and the value the board gets cannot drift. */
-export function sleepModeFor(secs) {
-  return secs >= DEEP_SLEEP_THRESHOLD_SECS ? 'deep' : 'light';
-}
+/** Sleep mode derives from the interval — see device/schedule.js, which owns the
+ *  threshold and the payload so the A1 tiles can build one without importing the editor.
+ *  Re-exported here because the editor has always read them from this module. */
+export { DEEP_SLEEP_THRESHOLD_SECS, sleepModeFor } from '../device/schedule.js';
 
 // ---------- resolution / orientation ----------------------------------------
 
