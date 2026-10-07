@@ -157,10 +157,21 @@ export function syncDisplayBackground(color = display.background) {
   }
 }
 
+/**
+ * Called after the user picks a new background. Some elements draw their faint parts
+ * relative to the page (elements.js#faintFill), and elements.js already depends on
+ * this module, so it registers here rather than being imported. elements.js registers
+ * while this module may still be loading (the two import each other), so the set lives
+ * behind a hoisted function rather than in a top-level const.
+ */
+function backgroundListeners() { return (backgroundListeners.set ??= new Set()); }
+export function onDisplayBackgroundPicked(fn) { backgroundListeners().add(fn); }
+
 $('bgSwatches')?.addEventListener('click', (e) => {
   const color = e.target.closest('.swatch')?.dataset.color;
   if (!color || color === display.background) return;
   syncDisplayBackground(color);
+  backgroundListeners().forEach((fn) => fn());
   // Autosave listens for 'draw' on the CONTENT layer (doc.js), and bgRect lives on
   // its own layer, so a background change would otherwise never reach canvas.json.
   layer.batchDraw();
