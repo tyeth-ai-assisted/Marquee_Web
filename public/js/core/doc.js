@@ -15,8 +15,8 @@
  * canvasfeed.js, which is on a much longer leash than the 400ms debounce here.
  */
 
-import { display, MODE_LABELS } from '../canvas/palette.js';
-import { layer, fitZoom, hideDitherPreview } from '../canvas/stage.js';
+import { display, MODE_LABELS, PAPER } from '../canvas/palette.js';
+import { layer, fitZoom, hideDitherPreview, syncDisplayBackground } from '../canvas/stage.js';
 import { select } from '../canvas/selection.js';
 import {
   addLabel, addDivider, addLineChart, addGauge, addIndicator, addBattery, addImage, addDatetime,
@@ -151,6 +151,12 @@ export function serialize() {
         Object.assign(base, { ink: n.getAttr('ink'), title: n.getAttr('title'), w: n.getAttr('w') });
         base.value = n.getAttr('value');
       }
+      // The text box (see applyTextBox in elements.js). Written only when set, so a
+      // plain label serializes exactly as it did before the option existed.
+      if (etype === 'label' || etype === 'datetime') {
+        if (n.getAttr('background')) base.background = n.getAttr('background');
+        if (n.padding()) base.padding = n.padding();
+      }
       return base;
     }),
   };
@@ -180,6 +186,11 @@ export function deserialize(doc, { keepDisplay = false } = {}) {
     applyDisplayToForm();
     setResolution(display.width, display.height);
   }
+  // The background is the one display field that belongs to the artwork rather than
+  // the bench, so it is taken from the document even under keepDisplay — a scene
+  // hydrated from another machine or imported from a file keeps the page it was drawn
+  // on. A document from before the field existed has none, and loads on PAPER.
+  syncDisplayBackground(doc.display?.background ?? PAPER);
 
   const makers = {
     label: addLabel, divider: addDivider, linechart: addLineChart,

@@ -15,7 +15,7 @@ import {
   isWidget, rebuildWidget, elementColor, setElementColor, wireNode, nextId,
   INDICATOR_OPS, MIN_WIDGET_W, indicatorValueKnown, batteryFraction,
   isFeedLinked, linkedLabelText, feedValueAttr, CHART_RANGES, CHART_RAW_MAX,
-  CHART_FONT_MIN, CHART_FONT_MAX, gaugeValue, applyTimeValue,
+  CHART_FONT_MIN, CHART_FONT_MAX, gaugeValue, applyTimeValue, TEXT_PAD_MAX,
 } from './elements.js';
 import { feedImageToImage, bindFeedImage, MIN_WIDGET_H } from './elements.js';
 import { FEED_IMAGE_FITS, FEED_IMAGE_TYPES, sniffImageType } from '../core/feedimage.js';
@@ -59,9 +59,12 @@ export function select(node) {
  * elements that carry more than one color. Omitted = the plain single-ink row,
  * which routes through setElementColor. `colors` narrows the offered set — the
  * battery passes neutralShades() so a grey ramp never offers red or yellow.
+ * `none` leads the row with a "no colour" swatch, which writes '' — for a
+ * colour that is optional, like a text box's background.
  */
-function swatchHTML(current, target, colors = PALETTES[display.type]) {
+function swatchHTML(current, target, colors = PALETTES[display.type], { none = false } = {}) {
   return `<div class="swatches"${target ? ` data-target="${target}"` : ''}>`
+    + (none ? `<button type="button" class="swatch swatch-none" data-active="${!current}" data-color="" aria-label="No color"></button>` : '')
     + colors.map((c) =>
       `<button type="button" class="swatch" data-active="${c === current}" data-color="${c}" style="background:${c}" aria-label="Set color ${c}"></button>`
     ).join('') + '</div>';
@@ -184,6 +187,10 @@ function textStyleRowsHTML(n) {
         <option value="center" ${n.align() === 'center' ? 'selected' : ''}>Center</option>
         <option value="right" ${n.align() === 'right' ? 'selected' : ''}>Right</option>
       </select>
+    </div>
+    <span class="label">Background</span>${swatchHTML(n.getAttr('background') || '', 'background', undefined, { none: true })}
+    <div class="prop-row">
+      <span class="label">Padding</span><input type="number" id="pPad" value="${n.padding()}" min="0" max="${TEXT_PAD_MAX}">
     </div>`;
 }
 
@@ -550,6 +557,10 @@ export function refreshProps() {
     n.setAttr('width', v >= 8 ? Math.round(v) : undefined); // blank = auto-size to text
   });
   bind('pAlign', (e) => n.align(e.target.value));
+  bind('pPad', (e) => {
+    n.padding(clamp(Math.round(+e.target.value) || 0, 0, TEXT_PAD_MAX));
+    tr.forceUpdate();   // padding changes the box, which the transformer is hugging
+  });
 
   // ---- datetime ----
   // Both are selects, so re-rendering the panel after the read cannot take focus from
@@ -795,6 +806,9 @@ export function refreshProps() {
         if (feeds[i]) feeds[i].color = s.dataset.color;
         n.setAttr('feeds', feeds);
         rebuildWidget(n);
+      } else if (target === 'background') {
+        // A text box, not a widget: the text's own sceneFunc paints it on the next draw.
+        n.setAttr('background', s.dataset.color);
       } else if (target) {
         n.setAttr(target, s.dataset.color);
         rebuildWidget(n);

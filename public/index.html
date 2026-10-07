@@ -596,6 +596,14 @@
               <button type="button" class="btn btn-sm zoom-btn" id="zoomFit">Fit</button>
             </span>
 
+            <!-- The page the scene is drawn on. In the strip for the reason the
+                 dither is: it belongs to the whole display, not to a block. One
+                 swatch per palette colour, rendered by stage.js#syncDisplayBackground. -->
+            <span class="bg-pick">
+              <span class="pop-label">Background</span>
+              <span class="swatches" id="bgSwatches" role="group" aria-label="Display background"></span>
+            </span>
+
             <!-- Anchored to the trigger rather than to the strip: the strip is
                  centre-aligned under the panel, so a panel hung off its edge would
                  sit somewhere different for every dither label length. -->

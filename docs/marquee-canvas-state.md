@@ -193,7 +193,10 @@ In order, all of it guarded on the active device not having changed underneath:
    replaced back over the record.
 3. `deserialize(doc, { keepDisplay: true })` — the panel descriptor is **this** bench's.
    The `display` block inside a document authored elsewhere describes that machine's
-   idea of the panel, not the pins in front of the user.
+   idea of the panel, not the pins in front of the user. The one exception is
+   `display.background`, the colour of the page the scene is drawn on: that is part of
+   the artwork, so it is always taken from the document (snapped to this panel's
+   palette), and a document without one loads on the default paper colour.
 4. `saveCanvasNow()` — localStorage and the timestamp.
 5. `whenCanvasSettled()` — images decode asynchronously, and photographing the canvas
    early caches a panel with holes where the artwork goes.
@@ -214,7 +217,8 @@ when IO has nothing to say.
 here on the usual leash above. Like a hydrate it loads with `keepDisplay: true` — the
 file's `display` block is shown to the user against this panel's, the artwork can be
 fitted (uniform scale, centered) or placed 1:1, colours are snapped to this panel's
-palette, and only the dithering may optionally be adopted from the file.
+palette, and only the dithering may optionally be adopted from the file. The page
+background comes with the artwork, as on a hydrate.
 
 ## Displays that predate this feed
 
@@ -239,7 +243,7 @@ taste, but it would be the wrong shape anyway: version history is a repository's
 and `Export JSON` / `Import JSON` in the editor are the manual doors out and back in.
 
 **Credentials, pins or identity.** The `display` block is geometry, rotation, colour
-mode and dither settings — never a pinout, an Adafruit IO username or a key. That is
+mode, dither settings and the page background — never a pinout, an Adafruit IO username or a key. That is
 what makes the document safe to leave sitting on an account, and the geometry it does
 carry is read as advisory anyway: `deserialize(…, { keepDisplay: true })` above keeps
 the bench's own descriptor, because a document authored on another machine describes

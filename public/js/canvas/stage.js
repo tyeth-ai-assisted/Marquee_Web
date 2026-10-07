@@ -10,7 +10,7 @@
  */
 
 import { Konva } from './konva.js';
-import { display, logicalDims, PAPER, MODE_LABELS } from './palette.js';
+import { display, logicalDims, MODE_LABELS, PALETTES, paletteBackground } from './palette.js';
 import { $, toast } from '../core/util.js';
 import { renderBitmap } from './render.js';
 
@@ -28,7 +28,7 @@ export let zoom = 1;
 export const stage = new Konva.Stage({ container: 'stage-holder', width: 296, height: 128 });
 
 const bgLayer = new Konva.Layer({ listening: false });
-export const bgRect = new Konva.Rect({ x: 0, y: 0, fill: PAPER });
+export const bgRect = new Konva.Rect({ x: 0, y: 0, fill: display.background });
 bgLayer.add(bgRect);
 
 const gridLayer = new Konva.Layer({ listening: false, visible: false });
@@ -129,6 +129,43 @@ export function updateDims() {
   const rot = display.rotation ? ` · ${display.rotation}°` : '';
   el.textContent = `${w} × ${h}${rot} · ${MODE_LABELS[display.type] || display.type}`;
 }
+
+// ---------- display background ----------------------------------------------
+//
+// The paper the scene is drawn on. It is bgRect, so captureClean() photographs it
+// along with everything else and the dithered BMP gets it for free — there is no
+// second place the render has to be told about it.
+//
+// The swatches sit in the strip under the panel beside the dither chip, for the
+// reason that chip is there: it is a property of the whole scene, so it has to be
+// reachable with nothing selected and must not look like a property of a block.
+
+/**
+ * Paint `display.background`, snapped to the current palette, and redraw the
+ * swatches. Called with a colour from the swatches, and with none whenever the
+ * palette or the document changes underneath it (remapColorsToPalette, deserialize).
+ */
+export function syncDisplayBackground(color = display.background) {
+  display.background = paletteBackground(color);
+  bgRect.fill(display.background);
+  const box = $('bgSwatches');
+  if (box) {
+    box.innerHTML = PALETTES[display.type].map((c) =>
+      `<button type="button" class="swatch" data-active="${c === display.background}" data-color="${c}" style="background:${c}" aria-label="Background ${c}"></button>`
+    ).join('');
+  }
+}
+
+$('bgSwatches')?.addEventListener('click', (e) => {
+  const color = e.target.closest('.swatch')?.dataset.color;
+  if (!color || color === display.background) return;
+  syncDisplayBackground(color);
+  // Autosave listens for 'draw' on the CONTENT layer (doc.js), and bgRect lives on
+  // its own layer, so a background change would otherwise never reach canvas.json.
+  layer.batchDraw();
+  scheduleDitherRefresh();
+});
+syncDisplayBackground();
 
 // ---------- live dither preview overlay -------------------------------------
 //

@@ -140,3 +140,42 @@ test('fitDoc scales a feed image frame like a static image', () => {
   assert.equal(out.elements[0].h, 32);
   assert.equal(out.elements[0].fit, 'cover');
 });
+
+test('display.background: a colour is kept, junk is warned about and dropped', () => {
+  const ok = validateCanvasDoc(docText({ display: { background: '#2F2429' } }));
+  assert.deepEqual(ok.doc.display, { background: '#2F2429' });
+  assert.equal(ok.warnings.length, 0);
+
+  const bad = validateCanvasDoc(docText({ display: { background: 'black' } }));
+  assert.deepEqual(bad.doc.display, {});
+  assert.match(bad.warnings[0], /display\.background/);
+});
+
+test('an older document with no background imports without one — the load fills in PAPER', () => {
+  const r = validateCanvasDoc(docText({ display: { width: 128, height: 296 } }));
+  assert.equal('background' in r.doc.display, false);
+  assert.equal(r.warnings.length, 0);
+});
+
+test('a text box background and padding ride through validation untouched', () => {
+  const r = validateCanvasDoc(docText({ elements: [
+    label(0, 0, { background: '#D72627', padding: 4 }),
+    { etype: 'datetime', x: 0, y: 0, background: '#2F2429', padding: 2 },
+  ] }));
+  assert.equal(r.ok, true);
+  assert.equal(r.doc.elements[0].background, '#D72627');
+  assert.equal(r.doc.elements[0].padding, 4);
+  assert.equal(r.doc.elements[1].padding, 2);
+});
+
+test('fitDoc: a text box padding scales with its type', () => {
+  const doc = { version: 1, display: {}, elements: [
+    label(0, 0, { padding: 8, background: '#2F2429' }),
+    { etype: 'datetime', x: 0, y: 0, fontSize: 20, padding: 8 },
+  ] };
+  const out = fitDoc(doc, { w: 296, h: 128 }, { w: 148, h: 64 });
+  assert.equal(out.elements[0].padding, 4);
+  assert.equal(out.elements[0].fontSize, 10);
+  assert.equal(out.elements[0].background, '#2F2429');
+  assert.equal(out.elements[1].padding, 4);
+});

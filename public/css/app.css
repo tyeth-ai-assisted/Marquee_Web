@@ -746,6 +746,16 @@
   border: 1px solid var(--color-divider);
 }
 .swatch[data-active="true"] { outline: 2px solid var(--color-accent); outline-offset: 1px; }
+/* "No background": a struck-through empty chip, the usual way of saying transparent. */
+.swatch-none {
+  background: linear-gradient(to top right, transparent calc(50% - 1px),
+    var(--color-muted) calc(50% - 1px), var(--color-muted) calc(50% + 1px), transparent calc(50% + 1px))
+    var(--color-bg);
+}
+/* The display background picker in the strip under the panel — the dither chip's
+   neighbour, so its swatches are the small kind. */
+.bg-pick { display: inline-flex; align-items: center; gap: 6px; flex: none; }
+.bg-pick .swatch { width: 16px; height: 16px; }
 .hint { font-size: 12px; line-height: 1.5; color: var(--color-muted); }
 
 /* The canvas right-click menu (selection.js). Fixed, because it is placed at the

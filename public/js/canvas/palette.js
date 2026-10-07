@@ -8,6 +8,9 @@
  * bindings that do exactly that.
  */
 
+/** The panel's blank page: what every palette calls white, and the default background. */
+export const PAPER = '#F2F4EF';
+
 /**
  * Seeded with the MagTag, matching the DISPLAY_PRESETS entry and the HTML
  * defaults in index.html. width/height are the panel's NATIVE scan geometry —
@@ -26,6 +29,11 @@ export const display = {
   dither: 'FloydSteinberg',
   diffusion: 85,
   orderedMap: 8,
+  // The colour the canvas starts as, before any element is drawn on it. Unlike the
+  // fields above it is part of the ARTWORK, not the bench: deserialize() takes it from
+  // the document even when it keeps this descriptor. Always a colour of the current
+  // palette — see paletteBackground().
+  background: PAPER,
 };
 
 /**
@@ -36,8 +44,6 @@ export const display = {
  * Order here is for the editor's swatches only: the BMP palette that reaches the
  * panel is in the renderer's octree order, exactly as ImageMagick emitted it.
  */
-export const PAPER = '#F2F4EF';
-
 export const PALETTES = {
   mono:      ['#2F2429', '#F2F4EF'],
   gray4:     ['#2F2429', '#70696B', '#B1AFAD', '#F2F4EF'],
@@ -89,6 +95,33 @@ export function hexToRGB(hex) {
   if (typeof hex !== 'string') return [0, 0, 0]; // elements without a fill (e.g. images)
   const v = hex.replace('#', '');
   return [parseInt(v.slice(0, 2), 16), parseInt(v.slice(2, 4), 16), parseInt(v.slice(4, 6), 16)];
+}
+
+/** The entry of `palHex` nearest to `hex`, by straight RGB distance. */
+export function nearestColor(hex, palHex) {
+  const c = hexToRGB(hex);
+  let best = palHex[0], bestD = Infinity;
+  for (const p of palHex) {
+    const [r, g, b] = hexToRGB(p);
+    const d = (r - c[0]) ** 2 + (g - c[1]) ** 2 + (b - c[2]) ** 2;
+    if (d < bestD) { bestD = d; best = p; }
+  }
+  return best;
+}
+
+export const isHexColor = (v) => typeof v === 'string' && /^#[0-9a-f]{6}$/i.test(v);
+
+/**
+ * The display background a document asks for, as a colour this panel can show.
+ *
+ * Restricted to the palette, like every ink: anything else would only dither into a
+ * speckle of the colours either side of it. A document saved before the field existed
+ * has none and gets PAPER, which is what its canvas always was, so an old layout loads
+ * exactly as it looked. PAPER is in every palette, so the fallback never needs snapping.
+ */
+export function paletteBackground(bg, type = display.type) {
+  if (!isHexColor(bg)) return PAPER;
+  return nearestColor(bg, PALETTES[type] || PALETTES.mono);
 }
 
 /**

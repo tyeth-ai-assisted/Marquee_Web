@@ -13,7 +13,7 @@
  * travels with the artwork.
  */
 
-import { PALETTES, logicalDimsOf } from '../canvas/palette.js';
+import { PALETTES, logicalDimsOf, isHexColor } from '../canvas/palette.js';
 
 /** Every etype deserialize() has a factory for. Anything else would silently load as
  *  a label, which is worse than saying so and leaving it out. */
@@ -52,6 +52,8 @@ function validateDisplay(d, warnings) {
   keep('dither', (v) => DITHERS.has(v), 'FloydSteinberg, ordered or none');
   keep('diffusion', (v) => Number.isFinite(v) && v >= 0 && v <= 100, 'between 0 and 100');
   keep('orderedMap', (v) => ORDERED_MAPS.has(v), '2, 4 or 8');
+  // Snapped to this panel's palette on load, like every ink, so any colour will do.
+  keep('background', isHexColor, 'a #RRGGBB colour');
   if (typeof d.panel === 'string') out.panel = d.panel;
   // A size is only a size with both halves.
   if (!('width' in out) || !('height' in out)) { delete out.width; delete out.height; }
@@ -139,8 +141,8 @@ export function compareDisplay(src, dst) {
 /** The size fields of each etype — the ones the transformend bake in elements.js
  *  scales, plus the fonts that ride inside a widget. */
 const SIZE_KEYS = {
-  label: ['fontSize', 'width'],
-  datetime: ['fontSize', 'width'],
+  label: ['fontSize', 'width', 'padding'],
+  datetime: ['fontSize', 'width', 'padding'],
   divider: ['width', 'height'],
   image: ['w', 'h'],
   feedimage: ['w', 'h'],

@@ -8,8 +8,10 @@
  */
 
 import { Konva } from './konva.js';
-import { display, logicalDims, PAPER, PALETTES, hexToRGB, neutralShades } from './palette.js';
-import { layer, tr, snap, zoom, suspendDitherPreview, scheduleDitherRefresh } from './stage.js';
+import { display, logicalDims, PALETTES, hexToRGB, neutralShades, isHexColor } from './palette.js';
+import {
+  layer, tr, snap, zoom, suspendDitherPreview, scheduleDitherRefresh, syncDisplayBackground,
+} from './stage.js';
 import { select, refreshProps } from './selection.js';
 import { FA_FAMILY, FA_WEIGHT, iconGlyph, DEFAULT_GAUGE_ICON, onFaReady } from './icons.js';
 import {
@@ -149,6 +151,39 @@ export function applyFeedValue(n, raw) {
   else rebuildWidget(n);
 }
 
+// ---------- text box: background + padding ----------------------------------
+//
+// The label and the datetime can sit on a filled box. Konva.Text has no background
+// of its own, so rather than wrap it in a Group — which would turn every n.text(),
+// n.fill() and n.fontSize() in the app into a child lookup, and every saved label
+// into a migration — the box is painted by the text's own sceneFunc, under the
+// glyphs. Konva.Text's native `padding` already insets the glyphs and is counted in
+// width()/height(), so the box, the hit area and the transformer all agree, and an
+// auto-width box follows the text as a live value changes its length.
+
+/** The largest padding the inspector offers, in px. */
+export const TEXT_PAD_MAX = 64;
+
+function drawTextBox(ctx, shape) {
+  const bg = shape.getAttr('background');
+  if (bg) {
+    ctx.setAttr('fillStyle', bg);
+    ctx.fillRect(0, 0, shape.width(), shape.height());
+  }
+  shape._sceneFunc(ctx);
+}
+
+/**
+ * Install the box on a text element from its saved attrs. `background` is '' for
+ * none, which is the default and what every label saved before this existed loads
+ * as — so an old document draws exactly as it did.
+ */
+function applyTextBox(node, attrs) {
+  node.setAttr('background', isHexColor(attrs.background) ? attrs.background : '');
+  node.padding(clamp(Math.round(toNum(attrs.padding) ?? 0), 0, TEXT_PAD_MAX));
+  node.sceneFunc(drawTextBox);
+}
+
 // ---------- label + divider -------------------------------------------------
 
 export function addLabel(attrs = {}) {
@@ -173,6 +208,7 @@ export function addLabel(attrs = {}) {
   // trusting the saved string: the prefix/suffix could have been edited in the
   // same session that the value last changed.
   if (isFeedLinked(node) && node.getAttr('feedValue') !== null) node.text(linkedLabelText(node));
+  applyTextBox(node, attrs);
   wireNode(node);
   layer.add(node);
   return node;
@@ -229,6 +265,7 @@ export function addDatetime(attrs = {}) {
   node.setAttr('timeTz', a.timeTz);
   node.setAttr('timeValue', a.timeValue);
   node.text(datetimeText(node));
+  applyTextBox(node, attrs);
   wireNode(node);
   layer.add(node);
   return node;
@@ -902,11 +939,13 @@ export function addIndicator(attrs = {}) {
   });
   g.setAttr('etype', 'indicator');
   g.setAttr('w', attrs.w ?? 16);
-  // Defaults use the darkest ink and the PAPER constant, both of which exist in
-  // EVERY palette. Positional shortcuts don't: [1] is a dark grey on gray4, and
-  // the last entry is paper on gray4 (an invisible "on" lamp).
+  // Defaults use the darkest ink and the display background, both of which exist
+  // in EVERY palette (the background is snapped to it). Positional shortcuts don't:
+  // [1] is a dark grey on gray4, and the last entry is paper on gray4 (an invisible
+  // "on" lamp). Off follows the background so an unlit lamp reads as unlit on a
+  // dark or coloured page too, not as a paper-white dot.
   g.setAttr('onColor', attrs.onColor ?? PALETTES[display.type][0]);
-  g.setAttr('offColor', attrs.offColor ?? PAPER);
+  g.setAttr('offColor', attrs.offColor ?? display.background);
   g.setAttr('ink', attrs.ink ?? PALETTES[display.type][0]);
   g.setAttr('op', attrs.op ?? 'eq');
   g.setAttr('cmp', attrs.cmp ?? '1');
@@ -1321,6 +1360,8 @@ export function wireNode(node) {
       // Corner drag: scale the type itself (box width scales along if fixed).
       const boxed = node.attrs.width !== undefined;
       node.fontSize(Math.max(4, Math.round(node.fontSize() * node.scaleY())));
+      // The box's padding scales with the type, or a big label ends up cramped.
+      node.padding(clamp(Math.round(node.padding() * node.scaleY()), 0, TEXT_PAD_MAX));
       if (boxed) node.width(Math.max(8, Math.round(node.width() * node.scaleX())));
     }
     node.scale({ x: 1, y: 1 });
@@ -1369,10 +1410,13 @@ export function editLabel(node) {
     lineHeight: String(node.lineHeight()),
     textAlign: node.align(),
     color: node.fill(),
-    background: 'transparent',
+    // Konva's padding is inside width(), so mirroring it here keeps the caret on the
+    // glyphs it is replacing, and the box colour keeps light text legible.
+    padding: node.padding() * zoom + 'px',
+    boxSizing: 'border-box',
+    background: node.getAttr('background') || 'transparent',
     border: `1px dashed ${accent}`,
     margin: '0',
-    padding: '0',
     overflow: 'hidden',
     resize: 'none',
     outline: 'none',
@@ -1444,11 +1488,15 @@ export function remapColorsToPalette() {
   };
   const nearest = nearestIn(PALETTES[display.type]);
   const nearestNeutral = nearestIn(neutralShades());
+  // The page itself, before the elements on it — see syncDisplayBackground().
+  syncDisplayBackground();
   layer.find('.element').forEach((n) => {
     if (n.getAttr('etype') === 'image') return; // dithered at render time, no single ink
     // Same for a feed image — but its empty-frame placeholder is drawn in the darkest
     // ink of the palette at build time, so it is rebuilt to pick up the new one.
     if (n.getAttr('etype') === 'feedimage') { rebuildWidget(n); return; }
+    // A text box's background is a second colour beside its ink; '' (none) stays none.
+    if (n.getAttr('background')) n.setAttr('background', nearest(n.getAttr('background')));
     // An indicator carries THREE colors, so the single-color elementColor /
     // setElementColor pair can't express it — remap each one explicitly.
     if (n.getAttr('etype') === 'indicator') {
