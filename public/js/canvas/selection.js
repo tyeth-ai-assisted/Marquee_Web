@@ -23,6 +23,7 @@ import { openFeedPicker, refreshFeedElements, refreshChart } from '../device/fee
 import { listTimezones } from '../device/iotime.js';
 import { TIME_PRESETS, presetForFmt } from '../core/timefmt.js';
 import { GAUGE_ICONS, FA_LINK } from './icons.js';
+import { Z_OPS, restack, canRestack, stackPosition } from './zorder.js';
 import { $, escapeHtml, escapeAttr, toast, clamp } from '../core/util.js';
 
 export let selected = null;
@@ -202,6 +203,24 @@ function tzOptionsHTML(current) {
     + zones.map((z) => `<option value="${escapeAttr(z)}"${z === current ? ' selected' : ''}>${escapeHtml(z)}</option>`).join('');
 }
 
+/**
+ * The Layer row: where the element sits in the stack, and the four ways to move it.
+ * Bottom-to-top left-to-right, so the buttons read in the direction they push. A
+ * control that would do nothing (forward on the topmost) is disabled rather than
+ * hidden, so the row never changes shape under the pointer.
+ */
+function layerRowHTML(n) {
+  const { index, count } = stackPosition(n);
+  return `
+    <div class="prop-row">
+      <span class="label">Layer</span>
+      <span class="mono" style="flex:1; font-size:12px; opacity:.6;" title="1 is the bottom">${index + 1} of ${count}</span>
+      ${[...Z_OPS].reverse().map(({ op, label, glyph, keys }) =>
+        `<button type="button" class="btn btn-sm" id="pZ-${op}" title="${label} (${keys})"
+          aria-label="${label}"${canRestack(n, op) ? '' : ' disabled'}>${glyph}</button>`).join('')}
+    </div>`;
+}
+
 /** Re-read one datetime and report a failure — the inspector's half of the refresh. */
 async function rereadDatetime(n) {
   const ok = await refreshFeedElements([n]);
@@ -218,7 +237,9 @@ export function refreshProps() {
     body.innerHTML = `<span class="label">Nothing selected</span>
       <p class="hint">Drag to move. Double-click a label to rename it. Corner handles scale
       type, side handles resize the text box. Arrow keys nudge, <span class="mono">⌫</span> deletes,
-      <span class="mono">⌘D</span> duplicates.</p>`;
+      <span class="mono">⌘D</span> duplicates, <span class="mono">⌘]</span> / <span class="mono">⌘[</span>
+      bring forward and send backward (add <span class="mono">⇧</span> for front and back).
+      Right-click an element for the same.</p>`;
     return;
   }
 
@@ -503,6 +524,7 @@ export function refreshProps() {
       + swatchHTML(elementColor(n), undefined,
           etype === 'battery' ? neutralShades() : PALETTES[display.type]))
     + `<div class="hr"></div>
+    ${layerRowHTML(n)}
     <div class="prop-row">
       <button type="button" class="btn btn-sm" id="pDuplicate" style="flex:1">Duplicate</button>
       <button type="button" class="btn btn-sm btn-danger" id="pDelete" style="flex:1">Delete</button>
@@ -755,6 +777,7 @@ export function refreshProps() {
 
   bind('pDelete', () => { n.destroy(); select(null); suspendDitherPreview(); scheduleDitherRefresh(); });
   bind('pDuplicate', () => duplicateSelected());
+  Z_OPS.forEach(({ op }) => bind(`pZ-${op}`, () => restackSelected(op)));
 
   // Scoped per row: a `data-target` row writes that attribute directly (elements
   // with more than one color), a plain row goes through setElementColor.
@@ -810,6 +833,105 @@ export function duplicateSelected() {
 }
 
 /**
+ * A Layer control on the selection. The redraw is what makes it an edit like any
+ * other: zIndex() alone doesn't request one, and the layer's 'draw' is what autosave
+ * and the canvas-state publish listen for (doc.js). A no-op skips both.
+ */
+export function restackSelected(op) {
+  if (!selected || !restack(selected, op)) return;
+  layer.batchDraw();
+  refreshProps();
+  scheduleDitherRefresh();
+}
+
+// ---------- context menu ----------------------------------------------------
+//
+// Right-click on an element selects it and offers the Layer controls, plus the two
+// actions the inspector ends with. Built once and re-filled on each open, so its
+// disabled states are always those of the element it was opened on.
+
+let ctxMenu = null;
+
+function closeContextMenu() {
+  if (!ctxMenu || ctxMenu.hidden) return;
+  ctxMenu.hidden = true;
+  ctxMenu.innerHTML = '';
+}
+
+function deleteSelected() {
+  if (!selected) return;
+  selected.destroy();
+  select(null);
+  suspendDitherPreview();
+  scheduleDitherRefresh();
+}
+
+function openContextMenu(node, clientX, clientY) {
+  if (!ctxMenu) {
+    ctxMenu = document.createElement('div');
+    ctxMenu.className = 'ctx-menu';
+    ctxMenu.setAttribute('role', 'menu');
+    ctxMenu.hidden = true;
+    document.body.appendChild(ctxMenu);
+    // Keys stop here: the document handler below would otherwise take an arrow key
+    // meant for the menu as a nudge of the element under it.
+    ctxMenu.addEventListener('keydown', (e) => {
+      e.stopPropagation();
+      const items = [...ctxMenu.querySelectorAll('button:not(:disabled)')];
+      const at = items.indexOf(document.activeElement);
+      if (e.key === 'Escape' || e.key === 'Tab') { e.preventDefault(); closeContextMenu(); }
+      else if (e.key === 'ArrowDown') { e.preventDefault(); items[(at + 1) % items.length]?.focus(); }
+      else if (e.key === 'ArrowUp') { e.preventDefault(); items[(at - 1 + items.length) % items.length]?.focus(); }
+    });
+    ctxMenu.addEventListener('click', (e) => {
+      const act = e.target.closest('button')?.dataset.act;
+      if (!act) return;
+      closeContextMenu();
+      if (act === 'duplicate') duplicateSelected();
+      else if (act === 'delete') deleteSelected();
+      else restackSelected(act);
+    });
+    // Anything else dismisses it — a click elsewhere, a scroll, the window losing focus.
+    document.addEventListener('pointerdown', (e) => { if (!ctxMenu.contains(e.target)) closeContextMenu(); }, true);
+    window.addEventListener('blur', closeContextMenu);
+    window.addEventListener('resize', closeContextMenu);
+    document.addEventListener('scroll', closeContextMenu, true);
+  }
+  const item = (act, label, keys, enabled = true) =>
+    `<button type="button" role="menuitem" data-act="${act}"${enabled ? '' : ' disabled'}>`
+    + `<span>${label}</span><span class="mono">${keys}</span></button>`;
+  ctxMenu.innerHTML = Z_OPS.map(({ op, label, keys }) => item(op, label, keys, canRestack(node, op))).join('')
+    + '<div class="hr"></div>'
+    + item('duplicate', 'Duplicate', '⌘D')
+    + item('delete', 'Delete', '⌫');
+  ctxMenu.hidden = false;
+  // Kept inside the viewport: a right-click near the bottom or right edge opens it
+  // up or left of the pointer instead.
+  const { width, height } = ctxMenu.getBoundingClientRect();
+  ctxMenu.style.left = Math.max(4, Math.min(clientX, window.innerWidth - width - 4)) + 'px';
+  ctxMenu.style.top = Math.max(4, Math.min(clientY, window.innerHeight - height - 4)) + 'px';
+  ctxMenu.querySelector('button:not(:disabled)')?.focus();
+}
+
+/** The element a canvas hit belongs to — a widget is a group, so walk up from the shape. */
+function elementOf(target) {
+  for (let n = target; n && n !== layer; n = n.getParent()) {
+    if (n.hasName && n.hasName('element')) return n;
+  }
+  return null;
+}
+
+export function initContextMenu() {
+  stage.on('contextmenu', (e) => {
+    const node = elementOf(e.target);
+    if (!node) { closeContextMenu(); return; }
+    e.evt.preventDefault();
+    if (selected !== node) select(node);
+    openContextMenu(node, e.evt.clientX, e.evt.clientY);
+  });
+}
+
+/**
  * Clicking empty space drops the selection. Two places count as empty: the stage
  * itself — the paper layer is not listening, so a miss on every element lands on
  * the stage — and the backdrop around the panel. Only the backdrop proper, not
@@ -825,7 +947,7 @@ export function initDeselect() {
 }
 
 /**
- * Nudge, delete and duplicate. Ignored while a form field has focus, and scoped
+ * Nudge, delete, duplicate and restack. Ignored while a form field has focus, and scoped
  * to the editor — without that, Backspace on the settings screen would silently
  * delete whatever was last selected on a canvas the user cannot even see.
  */
@@ -841,6 +963,18 @@ export function initKeyboard() {
       return;
     }
     if (!selected) return;
+
+    // Cmd/Ctrl+] and [ step the selection forward and backward; with Shift, all the
+    // way to the front or back. Matched on e.code first because Shift turns the key
+    // into } and { on a US layout (and something else again on others); e.key covers
+    // synthetic events, which often carry no code.
+    const code = e.code || { ']': 'BracketRight', '}': 'BracketRight', '[': 'BracketLeft', '{': 'BracketLeft' }[e.key];
+    if ((e.metaKey || e.ctrlKey) && (code === 'BracketRight' || code === 'BracketLeft')) {
+      e.preventDefault();
+      const up = code === 'BracketRight';
+      restackSelected(e.shiftKey ? (up ? 'front' : 'back') : (up ? 'forward' : 'backward'));
+      return;
+    }
 
     // With snap on, arrows step by one grid cell and Shift gives a fine 1px
     // nudge. With snap off, arrows step 1px and Shift steps 10px.

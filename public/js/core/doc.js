@@ -22,6 +22,7 @@ import {
   addLabel, addDivider, addLineChart, addGauge, addIndicator, addBattery, addImage, addDatetime,
   addFeedImage, feedImageSettled, remapColorsToPalette,
 } from '../canvas/elements.js';
+import { placeInSavedOrder } from '../canvas/zorder.js';
 import { normalizeDatetimeAttrs } from './timefmt.js';
 import { applyDisplayToForm, setResolution, applyDither } from './config.js';
 import { activeDeviceId, saveCanvas } from '../device/devices.js';
@@ -167,6 +168,9 @@ export function serialize() {
  */
 export function deserialize(doc, { keepDisplay = false } = {}) {
   const loading = [];
+  // A newer load supersedes this one. Without the check, an image still decoding from
+  // the PREVIOUS document would land on top of this one's scene when it finished.
+  const gen = ++loadGen;
   layer.find('.element').forEach((n) => n.destroy());
   select(null);
   if (!keepDisplay) {
@@ -181,7 +185,12 @@ export function deserialize(doc, { keepDisplay = false } = {}) {
     label: addLabel, divider: addDivider, linechart: addLineChart,
     gauge: addGauge, indicator: addIndicator, battery: addBattery, datetime: addDatetime,
   };
-  (doc.elements || []).forEach((el) => {
+  // The saved array order is the stacking order (see zorder.js). Everything but an
+  // image is built here, in that order; an image is built when it decodes, which can be
+  // after every other element and in any order, so it is slotted back down to its saved
+  // place rather than left on top.
+  const slots = new Array((doc.elements || []).length).fill(null);
+  (doc.elements || []).forEach((el, i) => {
     if (el.etype === 'image') {
       if (!el.src) return;
       // Decoding is the one part of a load that cannot be synchronous, so it is the one
@@ -190,7 +199,10 @@ export function deserialize(doc, { keepDisplay = false } = {}) {
       // to get, and hanging the caller on a broken data URL helps nobody.
       loading.push(new Promise((resolve) => {
         const img = new Image();
-        img.onload = () => { addImage(img, el); resolve(); };
+        img.onload = () => {
+          if (gen === loadGen) placeInSavedOrder(addImage(img, el), slots, i);
+          resolve();
+        };
         img.onerror = () => resolve();
         img.src = el.src;
       }));
@@ -202,12 +214,15 @@ export function deserialize(doc, { keepDisplay = false } = {}) {
       // Every factory reads its own attrs off the raw saved object, so the factory
       // is also the deserializer — including addGauge's `value` -> `gaugeValue`
       // migration, which nothing else could do (nothing reads doc.version).
-      (makers[el.etype] || addLabel)(el);
+      slots[i] = (makers[el.etype] || addLabel)(el);
     }
   });
   fitZoom();
   settled = Promise.all(loading);
 }
+
+/** Bumped by every deserialize(), so a superseded load's late images are dropped. */
+let loadGen = 0;
 
 /**
  * Resolves once the LAST deserialize() has finished putting its images on the canvas.

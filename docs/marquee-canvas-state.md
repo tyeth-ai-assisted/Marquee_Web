@@ -57,6 +57,18 @@ keep in step.
 {"version":1,"display":{"width":122,"height":250,"rotation":270,"type":"tricolor",…},"elements":[{"etype":"label","x":68,"y":10,…}]}
 ```
 
+### Element order is stacking order
+
+There is no `z` field. `elements` is written bottom-first, in the order the nodes sit in
+the editor's content layer, so the array order **is** the z-order and a reader that
+draws them in sequence gets the same overlap the editor showed. `deserialize()` keeps
+it: an image is only built once its data URL decodes, after everything else, so
+`placeInSavedOrder()` (`public/js/canvas/zorder.js`) slots each one back down beneath
+the first later element already on the canvas instead of leaving it on top. The editor
+reorders with the inspector's **Layer** row, the right-click menu, or
+<kbd>⌘</kbd>/<kbd>Ctrl</kbd>+<kbd>]</kbd> / <kbd>[</kbd> (add <kbd>Shift</kbd> for
+front / back); each is an ordinary edit, so it autosaves and mirrors like any other.
+
 ### The `datetime` element
 
 The toolbox's **Date & time** prop. A text block showing Adafruit IO's time

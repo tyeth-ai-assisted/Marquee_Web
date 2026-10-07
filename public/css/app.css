@@ -748,6 +748,40 @@
 .swatch[data-active="true"] { outline: 2px solid var(--color-accent); outline-offset: 1px; }
 .hint { font-size: 12px; line-height: 1.5; color: var(--color-muted); }
 
+/* The canvas right-click menu (selection.js). Fixed, because it is placed at the
+   pointer's viewport coordinates and appended to <body>, outside any scroller. */
+.ctx-menu {
+  position: fixed;
+  z-index: 20;
+  min-width: 210px;
+  display: flex;
+  flex-direction: column;
+  padding: 4px;
+  background: var(--color-bg);
+  color: var(--color-text);
+  border: 1px solid var(--color-divider);
+  box-shadow: var(--shadow-md);
+}
+.ctx-menu[hidden] { display: none; }
+.ctx-menu .hr { margin: 4px 0; }
+.ctx-menu button {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 6px 10px;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  font-size: 13px;
+  text-align: left;
+  cursor: pointer;
+}
+.ctx-menu button .mono { font-size: 11.5px; opacity: 0.6; }
+.ctx-menu button:hover:not(:disabled),
+.ctx-menu button:focus-visible { background: var(--color-accent-100); outline: none; }
+.ctx-menu button:disabled { opacity: 0.4; cursor: default; }
+
 /* Secondary options, collapsed by default. The chart block carries a dozen of
    them and the rail is 260px: shown flat they push the feed list and the history
    window — the controls you actually reach for — off the top of the scroll. */
