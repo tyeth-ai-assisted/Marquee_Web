@@ -6,7 +6,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  display, PAPER, PALETTES, nearestColor, isHexColor, paletteBackground,
+  display, PAPER, LEGACY_PAPER, PALETTES, nearestColor, isHexColor, paletteBackground, migrateLegacyPaper,
 } from '../public/js/canvas/palette.js';
 
 test('the display starts on PAPER, and PAPER is in every palette', () => {
@@ -23,9 +23,37 @@ test('isHexColor: #RRGGBB only', () => {
   assert.equal(isHexColor(undefined), false);
 });
 
+test('PAPER is pure white, so a photo\'s white and the blank page are the same colour', () => {
+  assert.equal(PAPER, '#FFFFFF');
+});
+
+test('migrateLegacyPaper swaps the old paper tint for PAPER anywhere in a document', () => {
+  const src = 'data:image/png;base64,AAAA';
+  const doc = {
+    version: 1,
+    display: { type: 'mono', background: '#F2F4EF' },
+    elements: [
+      { etype: 'label', fill: '#f2f4ef', background: '#2F2429', text: '#F2F4EF is a colour' },
+      { etype: 'indicator', onColor: '#2F2429', offColor: '#F2F4EF' },
+      { etype: 'battery', conds: [{ op: 'lt', cmp: '20', color: '#F2F4EF' }] },
+      { etype: 'image', src },
+    ],
+  };
+  const out = migrateLegacyPaper(doc);
+  assert.equal(out.display.background, PAPER);
+  assert.equal(out.elements[0].fill, PAPER);
+  assert.equal(out.elements[0].background, '#2F2429');
+  assert.equal(out.elements[0].text, '#F2F4EF is a colour', 'only whole colour values change');
+  assert.equal(out.elements[1].offColor, PAPER);
+  assert.equal(out.elements[2].conds[0].color, PAPER);
+  assert.equal(out.elements[3].src, src);
+  assert.equal(doc.display.background, LEGACY_PAPER, 'the input is not modified');
+});
+
 test('nearestColor picks the closest palette entry', () => {
   assert.equal(nearestColor('#000000', PALETTES.mono), '#2F2429');
-  assert.equal(nearestColor('#FFFFFF', PALETTES.mono), '#F2F4EF');
+  assert.equal(nearestColor('#FFFFFF', PALETTES.mono), PAPER);
+  assert.equal(nearestColor(LEGACY_PAPER, PALETTES.mono), PAPER);
   assert.equal(nearestColor('#FF0000', PALETTES.tricolor), '#D72627');
   assert.equal(nearestColor('#808080', PALETTES.gray4), '#70696B');
 });
