@@ -15,7 +15,7 @@
  * canvasfeed.js, which is on a much longer leash than the 400ms debounce here.
  */
 
-import { display, MODE_LABELS, PAPER } from '../canvas/palette.js';
+import { display, MODE_LABELS, PAPER, migrateLegacyPaper } from '../canvas/palette.js';
 import { layer, fitZoom, hideDitherPreview, syncDisplayBackground } from '../canvas/stage.js';
 import { select } from '../canvas/selection.js';
 import {
@@ -173,6 +173,9 @@ export function serialize() {
  * would silently revert a panel change made after the last canvas edit.
  */
 export function deserialize(doc, { keepDisplay = false } = {}) {
+  // Every load passes through here — boot restore, a device switch, an import, a scene
+  // hydrated from IO — so this is the one place an old document's paper needs updating.
+  doc = migrateLegacyPaper(doc);
   const loading = [];
   // A newer load supersedes this one. Without the check, an image still decoding from
   // the PREVIOUS document would land on top of this one's scene when it finished.

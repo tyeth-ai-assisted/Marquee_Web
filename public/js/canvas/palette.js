@@ -8,8 +8,18 @@
  * bindings that do exactly that.
  */
 
-/** The panel's blank page: what every palette calls white, and the default background. */
-export const PAPER = '#F2F4EF';
+/**
+ * The panel's blank page: what every palette calls white, and the default background.
+ *
+ * Pure white. It was the e-paper tint #F2F4EF, which looked right on screen but is not
+ * what a photo's white is, and not a fixed point of the ordered dither (which thresholds
+ * each channel against 0 and 255): blank paper came out speckled with ink. The firmware
+ * maps every BMP palette entry by brightness, so it draws either one as white.
+ */
+export const PAPER = '#FFFFFF';
+
+/** The paper colour documents were saved with before PAPER became pure white. */
+export const LEGACY_PAPER = '#F2F4EF';
 
 /**
  * Seeded with the MagTag, matching the DISPLAY_PRESETS entry and the HTML
@@ -45,12 +55,32 @@ export const display = {
  * panel is in the renderer's octree order, exactly as ImageMagick emitted it.
  */
 export const PALETTES = {
-  mono:      ['#2F2429', '#F2F4EF'],
-  gray4:     ['#2F2429', '#70696B', '#B1AFAD', '#F2F4EF'],
-  tricolor:  ['#2F2429', '#F2F4EF', '#D72627'],
+  mono:      ['#2F2429', PAPER],
+  gray4:     ['#2F2429', '#70696B', '#B1AFAD', PAPER],
+  tricolor:  ['#2F2429', PAPER, '#D72627'],
   // black/white/red/yellow; red+yellow from the product 6373 datasheet
-  quadcolor: ['#2F2429', '#F2F4EF', '#FD2A00', '#FFFF03'],
+  quadcolor: ['#2F2429', PAPER, '#FD2A00', '#FFFF03'],
 };
+
+/**
+ * A saved document with every LEGACY_PAPER colour swapped for PAPER.
+ *
+ * Every colour a document holds — the display background, inks, fills, text-box
+ * backgrounds, lamp and battery shades, series colours — is a palette entry, so the old
+ * paper can appear anywhere a colour can. Walking the whole tree rather than listing the
+ * fields means a colour field added later is migrated without anyone remembering to.
+ * Returns a copy; the input is not touched.
+ */
+export function migrateLegacyPaper(doc) {
+  const legacy = LEGACY_PAPER.toLowerCase();
+  const walk = (v) => {
+    if (typeof v === 'string') return v.length === 7 && v.toLowerCase() === legacy ? PAPER : v;
+    if (Array.isArray(v)) return v.map(walk);
+    if (v && typeof v === 'object') return Object.fromEntries(Object.entries(v).map(([k, x]) => [k, walk(x)]));
+    return v;
+  };
+  return walk(doc);
+}
 
 export const MODE_LABELS = {
   mono: 'mono',
@@ -126,9 +156,8 @@ export function paletteBackground(bg, type = display.type) {
 
 /**
  * A palette entry is "neutral" when its channels are near-equal. Derived rather
- * than hardcoded so a new palette gets the right behaviour for free. The
- * paper/ink hexes aren't pure greys (#2F2429, #F2F4EF), hence the tolerance
- * rather than r === g === b.
+ * than hardcoded so a new palette gets the right behaviour for free. The ink
+ * hex isn't a pure grey (#2F2429), hence the tolerance rather than r === g === b.
  *   mono / tricolor / quadcolor -> [ink, paper];  gray4 -> all four shades.
  */
 export function isNeutralHex(hex) {

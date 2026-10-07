@@ -196,7 +196,9 @@ In order, all of it guarded on the active device not having changed underneath:
    idea of the panel, not the pins in front of the user. The one exception is
    `display.background`, the colour of the page the scene is drawn on: that is part of
    the artwork, so it is always taken from the document (snapped to this panel's
-   palette), and a document without one loads on the default paper colour.
+   palette), and a document without one loads on the default paper colour, pure white
+   `#FFFFFF`. Documents saved when paper was the tint `#F2F4EF` have every colour of
+   that value swapped for white on load (`migrateLegacyPaper()` in `palette.js`).
 4. `saveCanvasNow()` — localStorage and the timestamp.
 5. `whenCanvasSettled()` — images decode asynchronously, and photographing the canvas
    early caches a panel with holes where the artwork goes.
