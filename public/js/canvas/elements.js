@@ -22,7 +22,8 @@ import { normalizeDatetimeAttrs, placeholderText } from '../core/timefmt.js';
 import { fitRect, FEED_IMAGE_FITS } from '../core/feedimage.js';
 import { IMAGE_DITHERS } from './imagedither.js';
 import { PixelText } from './pixeltext.js';
-import { textMetrics } from './pixelfont.js';
+import { textMetrics, captionFamily, cssFamily } from './pixelfont.js';
+import { whenWebFont } from './webfont.js';
 
 let counter = 0;
 export const nextId = () => 'el' + (++counter);
@@ -188,6 +189,22 @@ function applyTextBox(node, attrs) {
   node.sceneFunc(drawTextBox);
 }
 
+/**
+ * Draw `node` in its web font once that has loaded. The browser draws a substitute
+ * until then, and Konva has already measured the text with it, so the text is laid
+ * out again and the dither preview re-taken. A node in a bitmap or generic font has
+ * no `fontUrl` and is left alone.
+ */
+export function applyWebFont(node, url) {
+  node.setAttr('fontUrl', url || '');
+  whenWebFont(url, () => {
+    if (!node.getLayer()) return;        // deleted while the font was loading
+    node._setTextData();
+    node.getLayer().batchDraw();
+    scheduleDitherRefresh();
+  });
+}
+
 // ---------- label + divider -------------------------------------------------
 
 export function addLabel(attrs = {}) {
@@ -213,6 +230,7 @@ export function addLabel(attrs = {}) {
   // same session that the value last changed.
   if (isFeedLinked(node) && node.getAttr('feedValue') !== null) node.text(linkedLabelText(node));
   applyTextBox(node, attrs);
+  applyWebFont(node, attrs.fontUrl);
   wireNode(node);
   layer.add(node);
   return node;
@@ -268,6 +286,7 @@ export function addDatetime(attrs = {}) {
   node.setAttr('timeFmt', a.timeFmt);
   node.setAttr('timeTz', a.timeTz);
   node.setAttr('timeValue', a.timeValue);
+  applyWebFont(node, a.fontUrl);
   node.text(datetimeText(node));
   applyTextBox(node, attrs);
   wireNode(node);
@@ -372,11 +391,13 @@ const SERIES_DASH = [[], [4, 2], [1, 2], [6, 2, 1, 2], [8, 3], [2, 2, 6, 2]];
 export const seriesDash = (i) => SERIES_DASH[i % SERIES_DASH.length];
 
 // The chart's text (tick numbers, X/Y captions, legend, block title) is sized and
-// set per chart; these are the defaults and the range the inspector allows. 7px
-// monospace is what every chart drew before the option existed, so older layouts
-// are unchanged. The title stays TITLE_STEP px larger than the rest so it still
-// reads as the heading.
+// set per chart; these are the defaults and the range the inspector allows. 7 px is
+// what every chart drew before the option existed. The family defaults to the
+// Adafruit 5×7 bitmap font: at 7 px the tick numbers come out at 6 px, which browser
+// type cannot draw on a panel (pixelfont.js). A chart saved with a family keeps it.
+// The title stays TITLE_STEP px larger than the rest so it still reads as the heading.
 const AXIS_FONT_DEFAULT = 7;
+const AXIS_FAMILY_DEFAULT = 'gfx-5x7';
 export const CHART_FONT_MIN = 5, CHART_FONT_MAX = 24;
 const TITLE_STEP = 2;
 
@@ -520,7 +541,7 @@ function buildLineChart(g) {
   const yLabel = g.getAttr('yLabel') || '';
   const requestedFont = clamp(Math.round(+g.getAttr('axisFontSize') || AXIS_FONT_DEFAULT),
                               CHART_FONT_MIN, CHART_FONT_MAX);
-  const axisFamily = g.getAttr('axisFontFamily') || 'monospace';
+  const axisFamily = g.getAttr('axisFontFamily') || AXIS_FAMILY_DEFAULT;
 
   g.add(new Konva.Rect({ width: w, height: h, fill: '#000', opacity: 0 })); // hit area
 
@@ -549,9 +570,9 @@ function buildLineChart(g) {
     // The data along the axes (Y numbers, X times) sits a step below the captions,
     // so the captions read as the headings for them.
     const tickFont = Math.max(CHART_FONT_MIN - 1, Math.round(axisFont * 0.8));
-    // Below 8 px each of these is drawn from a bitmap font (pixelfont.js), whose
-    // characters and lines are a fixed size that the browser's estimates would get
-    // wrong — so every gutter is measured with the font that will actually draw in it.
+    // In a bitmap font (pixelfont.js) characters and lines are a fixed size that the
+    // browser's estimates would get wrong — so every gutter is measured with the font
+    // that will actually draw in it.
     const am = textMetrics(axisFont, axisFamily), tm = textMetrics(tickFont, axisFamily);
     const ttm = textMetrics(titleFont, axisFamily);
     const yGutter = yLabel ? am.lineH + 1 : 0;                     // rotated Y caption
@@ -589,6 +610,7 @@ function buildLineChart(g) {
   // Read back by the inspector, which says so when the size was cut down. Not
   // serialized: it is derived, and the next build recomputes it.
   g.setAttr('axisFontFit', axisFont);
+  g.setAttr('axisTickFit', tickFont);   // the smallest text drawn: what the font advice judges
   const plot = {
     x: left, y: top,
     w: plotW,
@@ -768,7 +790,10 @@ export function addLineChart(attrs = {}) {
   g.setAttr('gridLines', attrs.gridLines ?? false);
   g.setAttr('keyLegend', attrs.keyLegend ?? false);
   g.setAttr('axisFontSize', attrs.axisFontSize ?? AXIS_FONT_DEFAULT);
-  g.setAttr('axisFontFamily', attrs.axisFontFamily ?? 'monospace');
+  g.setAttr('axisFontFamily', attrs.axisFontFamily ?? AXIS_FAMILY_DEFAULT);
+  g.setAttr('axisFontUrl', attrs.axisFontUrl ?? '');
+  // A chart in a web font is built again once the face has loaded, like a label.
+  whenWebFont(g.getAttr('axisFontUrl'), () => { if (g.getLayer()) { rebuildWidget(g); scheduleDitherRefresh(); } });
   // Legacy sample data. Only reached when no feeds are bound (see chartSeries), so
   // a fresh unbound chart still shows a shape instead of an empty frame.
   g.setAttr('data', attrs.data ?? randTempSeries());
@@ -860,7 +885,7 @@ function buildGauge(g) {
 
   if (title) {
     g.add(new PixelText({
-      text: title, fontSize: titleFont, fontFamily: 'monospace', fill: ink,
+      text: title, fontSize: titleFont, fontFamily: captionFamily(titleFont), fill: ink,
       x: 0, y: 0, width: w, align: 'center',
     }));
   }
@@ -884,9 +909,10 @@ function buildGauge(g) {
   const labelFont = clamp(Math.round(valueFont * 0.6), 5, 20);
   const iconFont = showIcon ? clamp(Math.round(valueFont * 0.8), 6, 32) : 0;
   const gap = 1;
-  // Line heights, not font sizes: under 8 px the value and label are bitmap fonts whose
-  // lines are taller than their nominal size (pixelfont.js).
-  const valueH = textMetrics(valueFont).lineH, labelH = textMetrics(labelFont).lineH;
+  // The gauge picks its own type (captionFamily): under 8 px a bitmap font, whose lines
+  // are taller than their nominal size — so line heights, not font sizes, stack here.
+  const valueFamily = captionFamily(valueFont), labelFamily = captionFamily(labelFont);
+  const valueH = textMetrics(valueFont, valueFamily).lineH, labelH = textMetrics(labelFont, labelFamily).lineH;
   const stackH = (iconFont ? iconFont + gap : 0) + valueH + (label ? labelH + gap : 0);
   let y = Math.round(cy - stackH / 2);
 
@@ -900,13 +926,13 @@ function buildGauge(g) {
   }
   g.add(new PixelText({
     text: frac === null ? '—' : fmtDecimals(gaugeValue(g), decimals),
-    fontSize: valueFont, fontFamily: 'monospace', fill: valueInk,
+    fontSize: valueFont, fontFamily: valueFamily, fill: valueInk,
     x: 0, y, width: w, align: 'center',
   }));
   y += valueH + gap;
   if (label) {
     g.add(new PixelText({
-      text: label, fontSize: labelFont, fontFamily: 'monospace', fill: ink,
+      text: label, fontSize: labelFont, fontFamily: labelFamily, fill: ink,
       x: 0, y, width: w, align: 'center',
     }));
   }
@@ -1081,8 +1107,9 @@ function buildBattery(g) {
   const frac = batteryFraction(g);
   const pctText = frac === null ? '—' : `${Math.round(Number(g.getAttr('feedValue')))}%`;
   const fontSize = Math.max(7, Math.round(bodyH * 0.6));
+  const family = captionFamily(fontSize);
   // Reserve a fixed 4-character box so the icon doesn't shift as the value changes.
-  const textW = g.getAttr('showPct') ? Math.ceil(textMetrics(fontSize).charW * 4) : 0;
+  const textW = g.getAttr('showPct') ? Math.ceil(textMetrics(fontSize, family).charW * 4) : 0;
   const gap = g.getAttr('showPct') ? Math.max(2, Math.round(w * 0.08)) : 0;
   const totalW = w + gap + textW;
 
@@ -1115,8 +1142,8 @@ function buildBattery(g) {
 
   if (g.getAttr('showPct')) {
     g.add(new PixelText({
-      text: pctText, fontSize, fontFamily: 'monospace', fill: ink,
-      x: w + gap, y: Math.round((bodyH - textMetrics(fontSize).capH) / 2), width: textW, align: 'left',
+      text: pctText, fontSize, fontFamily: family, fill: ink,
+      x: w + gap, y: Math.round((bodyH - textMetrics(fontSize, family).capH) / 2), width: textW, align: 'left',
     }));
   }
 }
@@ -1266,7 +1293,7 @@ function buildFeedImage(g) {
   if (w >= 40 && h >= 14) {
     const fontSize = clamp(Math.round(Math.min(w / 8, h / 3)), 7, 14);
     g.add(new PixelText({
-      text: g.getAttr('feedKey') ? 'no image yet' : 'IO image', fontSize, fontFamily: 'monospace',
+      text: g.getAttr('feedKey') ? 'no image yet' : 'IO image', fontSize, fontFamily: captionFamily(fontSize),
       fill: ink, width: w, y: Math.round((h - fontSize) / 2), align: 'center',
     }));
   }
@@ -1502,7 +1529,7 @@ export function editLabel(node) {
     height: (node.height() + 6) * zoom + 'px',
     minHeight: '0',
     fontSize: node.fontSize() * zoom + 'px',
-    fontFamily: node.fontFamily(),
+    fontFamily: cssFamily(node.fontFamily()),
     lineHeight: String(node.lineHeight()),
     textAlign: node.align(),
     color: node.fill(),

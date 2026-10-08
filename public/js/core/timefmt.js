@@ -147,7 +147,10 @@ export function normalizeDatetimeAttrs(a = {}) {
       ? null : String(a.timeValue),
     fill: typeof a.fill === 'string' && a.fill ? a.fill : undefined,
     fontSize: Number.isFinite(fontSize) && fontSize >= 4 ? Math.round(fontSize) : 20,
-    fontFamily: ['monospace', 'sans-serif', 'serif'].includes(a.fontFamily) ? a.fontFamily : 'monospace',
+    // Any family name the font menu can produce: a generic, a bitmap font's id or a web
+    // font's family (pixelfont.js, webfont.js). `fontUrl` is where a web font came from.
+    fontFamily: typeof a.fontFamily === 'string' && a.fontFamily.trim() ? a.fontFamily.trim() : 'monospace',
+    fontUrl: typeof a.fontUrl === 'string' ? a.fontUrl.trim() : '',
     align: ['left', 'center', 'right'].includes(a.align) ? a.align : 'left',
     width: Number.isFinite(width) && width >= 8 ? Math.round(width) : undefined,
   };
