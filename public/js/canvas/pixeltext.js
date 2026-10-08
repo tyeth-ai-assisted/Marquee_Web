@@ -11,7 +11,10 @@
  */
 
 import { Konva } from './konva.js';
-import { pixelFontFor, pixelScale, pixelTextWidth, pixelTextRuns } from './pixelfont.js';
+import {
+  pixelFontFor, pixelScale, pixelTextWidth, pixelTextRuns, cssFamily, hasPictographs, drawableText,
+} from './pixelfont.js';
+import { requestEmojiFont } from './webfont.js';
 
 export class PixelText extends Konva.Text {
   /** The bitmap font this text is drawn from, or null. */
@@ -22,6 +25,39 @@ export class PixelText extends Konva.Text {
   /** The line height of this text in its bitmap font at its scale. */
   _pixelLineH(f) {
     return f.lineH * pixelScale(f, this.fontSize());
+  }
+
+  /**
+   * The canvas font string Konva measures and draws with. The family is the stack from
+   * cssFamily(): the chosen font, then the monochrome emoji fallback. A text that holds
+   * an emoji or symbol asks for that font the first time it is drawn, and lays itself
+   * out again once it has arrived — the OS's colour emoji stood in until then.
+   */
+  _getContextFont() {
+    if (this.pixelFont()) return super._getContextFont();
+    const text = this.text();
+    if (this._emojiAskedFor !== text && hasPictographs(text)) {
+      this._emojiAskedFor = text;            // once per text: a redraw must not re-ask
+      requestEmojiFont(text).then(() => {
+        if (!this.getLayer()) return;        // deleted while the font was loading
+        this._setTextData();
+        this.getLayer().batchDraw();
+      });
+    }
+    return `${this.fontStyle()} ${this.fontVariant()} ${this.fontSize()}px ${cssFamily(this.fontFamily())}`;
+  }
+
+  /**
+   * Konva splits text() into the lines it draws here. It is given drawableText() of it
+   * instead — emoji in text presentation, so the fallback font draws them — while text()
+   * itself, what the inspector shows and the document saves, keeps what was typed.
+   */
+  _setTextData() {
+    const raw = this.attrs.text;
+    const drawn = drawableText(raw);
+    if (drawn === raw) return super._setTextData();
+    this.attrs.text = drawn;
+    try { return super._setTextData(); } finally { this.attrs.text = raw; }
   }
 
   _getTextWidth(text) {

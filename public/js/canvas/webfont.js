@@ -128,3 +128,37 @@ export function whenWebFont(url, fn) {
   if (!url) return;
   loadWebFont(url).then(fn, (e) => console.warn('[webfont]', url, e));
 }
+
+// ---------- the emoji fallback ----------------------------------------------
+//
+// Every browser font's stack ends in Noto Emoji (pixelfont.js cssFamily), so an emoji
+// or symbol the font lacks is drawn as monochrome line art rather than the OS's colour
+// bitmap. The font is fetched the first time a text needs it, not at boot: most
+// documents never do, and a panel editor should not pay for a font nobody draws with.
+
+const EMOJI_CSS = 'https://fonts.googleapis.com/css2?family=Noto+Emoji&display=swap';
+const emojiListeners = new Set();
+let emojiLoad = null;
+
+/** Run `fn` each time the emoji font finishes loading. Listens only; never starts a load. */
+export function onEmojiFont(fn) {
+  emojiListeners.add(fn);
+}
+
+/**
+ * Make the emoji font drawable for `text`. The stylesheet is fetched once; Google
+ * serves the font in unicode-range subsets, so each text then asks for the ranges its
+ * own characters need (a no-op once they are in). Resolves true once drawable, or —
+ * never rejecting — false when the load failed and the browser's own fallback stays.
+ */
+export function requestEmojiFont(text = '') {
+  if (!emojiLoad) {
+    emojiLoad = loadWebFont(EMOJI_CSS).then(() => true, (e) => { console.warn('[webfont] emoji fallback', e); return false; });
+  }
+  return emojiLoad.then(async (ok) => {
+    if (!ok) return false;
+    await document.fonts.load(`16px "${loadedWebFont(EMOJI_CSS)}"`, text).catch(() => {});
+    emojiListeners.forEach((fn) => fn());
+    return true;
+  });
+}

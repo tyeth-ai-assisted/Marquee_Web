@@ -39,7 +39,9 @@ pixel is ink or paper, the same on every operating system, drawn at whole multip
 their native size like an Arduino sketch's `setTextSize`. **Web font from a URL…** loads
 a `.woff2` / `.ttf` / `.otf` file, a Google Fonts css2 link, or a Google Fonts family
 name (`public/js/canvas/webfont.js`); the document remembers the URL and loads the
-font again before it draws.
+font again before it draws. Every browser font falls back to Noto Emoji, fetched the
+first time a text needs it, so an emoji or symbol the font lacks is drawn as line art
+rather than the OS's colour bitmap, which snaps to almost nothing on a panel.
 
 `bitmap.js` is a pure-JS port of a subset of the ImageMagick CI pipeline and implements the following `magick` (ImageMagick) command only:
 ```
