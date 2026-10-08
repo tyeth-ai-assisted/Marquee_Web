@@ -1,4 +1,5 @@
 import { providerCollection } from "./providers.js";
+import { flickrPhotostream } from "./flickr.js";
 import {
   publicURL,
   reference,
@@ -165,12 +166,13 @@ export async function extractHTML(html, source) {
 }
 export async function discover(value, env = {}, fetcher = fetch) {
   const ref = reference(value);
-  const provider = await providerCollection(ref.url, env, async (u, body) => {
+  const readJSON = async (u, body) => {
     const { response } = await remote(u, env, fetcher, body);
     return JSON.parse(
       new TextDecoder().decode(await bounded(response, MAX_HTML)),
     );
-  });
+  };
+  const provider = await providerCollection(ref.url, env, readJSON);
   if (provider) return provider;
   const { response, url } = await remote(ref.url, env, fetcher);
   const type = response.headers.get("content-type") || "";
@@ -187,7 +189,14 @@ export async function discover(value, env = {}, fetcher = fetch) {
   }
   const bytes = await bounded(response, MAX_HTML);
   const text = new TextDecoder().decode(bytes);
+  // Short links must reach the same adapter as their final public destination.
+  if (url !== ref.url) {
+    const redirected = await providerCollection(url, env, readJSON);
+    if (redirected) return redirected;
+  }
   if (type.includes("json")) return manifest(JSON.parse(text), url);
+  const flickr = flickrPhotostream(text, url);
+  if (flickr) return flickr;
   const g =
     new URL(url).hostname === "photos.google.com"
       ? googleAlbum(text, url)

@@ -30,7 +30,7 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '24'
-      - name: Public Google Photos and iCloud Photos canaries
+      - name: Public Google Photos, iCloud Photos and Flickr canaries
         id: canary
         continue-on-error: true
         run: node scripts/test-album-live.mjs 2>&1 | tee album-canary.log

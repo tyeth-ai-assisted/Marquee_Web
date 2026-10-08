@@ -1,6 +1,7 @@
 /** Collection adapters. Provider metadata feeds the same image-only builder. */
 import { publicURL, MAX_ITEMS } from "./discovery.js";
 import { icloudAlbum } from "./icloud.js";
+import { flickrSource } from "./flickr.js";
 export async function providerCollection(value, env, readJSON) {
   const u = publicURL(value);
   const apple = await icloudAlbum(u.href, readJSON);
@@ -43,12 +44,15 @@ export async function providerCollection(value, env, readJSON) {
       warnings: [],
     };
   }
-  const album = /\/photos\/([^/]+)\/(?:albums|sets)\/(\d+)/.exec(u.pathname);
-  if (["www.flickr.com", "flickr.com"].includes(u.hostname) && album) {
+  const flickr = flickrSource(u.href);
+  if (flickr) {
     if (!env.FLICKR_API_KEY)
-      throw new Error(
-        "Flickr album API access needs a configured FLICKR_API_KEY. Upload photos or use a direct image URL meanwhile.",
-      );
+      if (!flickr.album)
+        return null; // Public photostream page data needs no key.
+      else
+        throw new Error(
+          "Flickr album API access needs a configured FLICKR_API_KEY. Use a public photostream link or upload photos meanwhile.",
+        );
     const call = async (method, params) => {
       const api = new URL("https://api.flickr.com/services/rest/");
       for (const [k, v] of Object.entries({
@@ -66,31 +70,46 @@ export async function providerCollection(value, env, readJSON) {
     };
     const owner = (
       await call("flickr.urls.lookupUser", {
-        url: `https://www.flickr.com/photos/${album[1]}/`,
+        url: `https://www.flickr.com/photos/${flickr.user}/`,
       })
     ).user.id;
-    const d = await call("flickr.photosets.getPhotos", {
-      photoset_id: album[2],
-      user_id: owner,
-      extras: "url_m,url_o,owner_name",
-      media: "photos",
-      per_page: String(MAX_ITEMS),
-    });
+    const d = await call(
+      flickr.album
+        ? "flickr.photosets.getPhotos"
+        : "flickr.people.getPublicPhotos",
+      {
+        ...(flickr.album ? { photoset_id: flickr.album } : {}),
+        user_id: owner,
+        extras: "url_l,url_c,url_z,url_m,url_o,owner_name,license",
+        media: "photos",
+        per_page: String(MAX_ITEMS),
+      },
+    );
+    const collection = flickr.album ? d.photoset : d.photos;
+    const author =
+      collection.ownername || collection.photo?.[0]?.ownername || flickr.user;
     return {
-      title: d.photoset.title || "Flickr album",
-      fields: { author: d.photoset.ownername || album[1] },
-      items: d.photoset.photo
+      title:
+        collection.title ||
+        (flickr.album ? "Flickr album" : `${author} — Flickr photostream`),
+      fields: { author },
+      items: collection.photo
+        .slice(0, MAX_ITEMS)
         .map((p) => ({
           id: p.id,
-          url: p.url_m || p.url_o,
-          title: p.title || "",
-          credit: p.ownername || d.photoset.ownername || album[1],
+          url: p.url_l || p.url_c || p.url_z || p.url_m || p.url_o,
+          title: p.title || "Photo",
+          credit: p.ownername || author,
+          license: p.license,
           source: u.href,
           kind: "image",
           provider: "flickr",
         }))
         .filter((i) => i.url),
-      completeness: d.photoset.pages > 1 ? "partial" : "complete",
+      completeness:
+        collection.pages > 1 || collection.photo.length > MAX_ITEMS
+          ? "partial"
+          : "complete",
       warnings: [],
     };
   }

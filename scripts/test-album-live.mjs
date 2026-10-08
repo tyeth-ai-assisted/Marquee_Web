@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { discover, downloadImage } from "../worker/index.js";
 const albums = [
   {
+    id: "google",
     name: "Google Photos",
     provider: "google-photos",
     url:
@@ -11,6 +12,7 @@ const albums = [
     count: Number(process.env.ALBUM_TEST_COUNT || 3),
   },
   {
+    id: "icloud",
     name: "iCloud Photos",
     provider: "icloud-photos",
     url:
@@ -18,9 +20,24 @@ const albums = [
       "https://photos.icloud.com/shared/album/04bbOkVUmSU7P2jQ2F2GXsW0g",
     count: Number(process.env.ICLOUD_ALBUM_TEST_COUNT || 9),
   },
+  {
+    id: "flickr",
+    name: "Flickr",
+    provider: "flickr",
+    url: process.env.FLICKR_ALBUM_TEST_URL || "https://flic.kr/ps/48bRD7",
+    count: Number(process.env.FLICKR_ALBUM_TEST_COUNT || 7),
+  },
 ];
+// An explicit selector helps reproduce one provider failure; nightly runs all.
+const only = process.argv.slice(2);
+if (only.some((id) => !albums.some((a) => a.id === id))) {
+  console.error(
+    "Choose google, icloud or flickr; omit selectors to check all albums.",
+  );
+  process.exit(1);
+}
 let failed = false;
-for (const album of albums) {
+for (const album of albums.filter((a) => !only.length || only.includes(a.id))) {
   let passed = false;
   for (let attempt = 0; attempt < 2 && !passed; attempt++) {
     let step = "discover album";
