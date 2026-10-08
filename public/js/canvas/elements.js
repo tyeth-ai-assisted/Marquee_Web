@@ -21,6 +21,9 @@ import {
 import { normalizeDatetimeAttrs, placeholderText } from '../core/timefmt.js';
 import { fitRect, FEED_IMAGE_FITS } from '../core/feedimage.js';
 import { IMAGE_DITHERS } from './imagedither.js';
+import { PixelText } from './pixeltext.js';
+import { textMetrics, captionFamily, cssFamily } from './pixelfont.js';
+import { whenWebFont, onEmojiFont } from './webfont.js';
 
 let counter = 0;
 export const nextId = () => 'el' + (++counter);
@@ -186,11 +189,27 @@ function applyTextBox(node, attrs) {
   node.sceneFunc(drawTextBox);
 }
 
+/**
+ * Draw `node` in its web font once that has loaded. The browser draws a substitute
+ * until then, and Konva has already measured the text with it, so the text is laid
+ * out again and the dither preview re-taken. A node in a bitmap or generic font has
+ * no `fontUrl` and is left alone.
+ */
+export function applyWebFont(node, url) {
+  node.setAttr('fontUrl', url || '');
+  whenWebFont(url, () => {
+    if (!node.getLayer()) return;        // deleted while the font was loading
+    node._setTextData();
+    node.getLayer().batchDraw();
+    scheduleDitherRefresh();
+  });
+}
+
 // ---------- label + divider -------------------------------------------------
 
 export function addLabel(attrs = {}) {
   const { w, h } = logicalDims();
-  const node = new Konva.Text(Object.assign({
+  const node = new PixelText(Object.assign({
     x: Math.round(w / 2 - 30), y: Math.round(h / 2 - 10),
     text: 'Label', fontSize: 20, fontFamily: 'monospace',
     fill: PALETTES[display.type][0], draggable: true,
@@ -211,6 +230,7 @@ export function addLabel(attrs = {}) {
   // same session that the value last changed.
   if (isFeedLinked(node) && node.getAttr('feedValue') !== null) node.text(linkedLabelText(node));
   applyTextBox(node, attrs);
+  applyWebFont(node, attrs.fontUrl);
   wireNode(node);
   layer.add(node);
   return node;
@@ -254,7 +274,7 @@ export function applyTimeValue(n, s) {
 export function addDatetime(attrs = {}) {
   const { w, h } = logicalDims();
   const a = normalizeDatetimeAttrs(attrs);
-  const node = new Konva.Text({
+  const node = new PixelText({
     x: attrs.x ?? Math.round(w / 2 - 50), y: attrs.y ?? Math.round(h / 2 - 10),
     fontSize: a.fontSize, fontFamily: a.fontFamily, align: a.align,
     fill: a.fill ?? PALETTES[display.type][0], draggable: true,
@@ -266,6 +286,7 @@ export function addDatetime(attrs = {}) {
   node.setAttr('timeFmt', a.timeFmt);
   node.setAttr('timeTz', a.timeTz);
   node.setAttr('timeValue', a.timeValue);
+  applyWebFont(node, a.fontUrl);
   node.text(datetimeText(node));
   applyTextBox(node, attrs);
   wireNode(node);
@@ -370,11 +391,13 @@ const SERIES_DASH = [[], [4, 2], [1, 2], [6, 2, 1, 2], [8, 3], [2, 2, 6, 2]];
 export const seriesDash = (i) => SERIES_DASH[i % SERIES_DASH.length];
 
 // The chart's text (tick numbers, X/Y captions, legend, block title) is sized and
-// set per chart; these are the defaults and the range the inspector allows. 7px
-// monospace is what every chart drew before the option existed, so older layouts
-// are unchanged. The title stays TITLE_STEP px larger than the rest so it still
-// reads as the heading.
+// set per chart; these are the defaults and the range the inspector allows. 7 px is
+// what every chart drew before the option existed. The family defaults to the
+// Adafruit 5×7 bitmap font: at 7 px the tick numbers come out at 6 px, which browser
+// type cannot draw on a panel (pixelfont.js). A chart saved with a family keeps it.
+// The title stays TITLE_STEP px larger than the rest so it still reads as the heading.
 const AXIS_FONT_DEFAULT = 7;
+const AXIS_FAMILY_DEFAULT = 'gfx-5x7';
 export const CHART_FONT_MIN = 5, CHART_FONT_MAX = 24;
 const TITLE_STEP = 2;
 
@@ -486,7 +509,7 @@ function chartTimeDomain(all) {
  * times; anything longer as dates, because "14:00" repeated across a week says
  * nothing. Both come from the browser's locale, which is where the bitmap is drawn.
  */
-function timeTickLabels(time, plotW, font) {
+function timeTickLabels(time, plotW, m) {
   const fmt = time.hi - time.lo <= 36 * 3600e3
     ? (ms) => new Date(ms).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })
     : (ms) => new Date(ms).toLocaleDateString([], { month: 'numeric', day: 'numeric' });
@@ -495,12 +518,12 @@ function timeTickLabels(time, plotW, font) {
       const frac = i / (n - 1);
       return { frac, text: fmt(time.lo + frac * (time.hi - time.lo)) };
     });
-    const widest = Math.max(...labels.map((l) => l.text.length)) * font * 0.62;
+    const widest = Math.max(...labels.map((l) => l.text.length)) * m.charW;
     // The ends are pinned inside the plot while the rest centre on their instant, so
     // the tightest pair is an end and its neighbour: one full label plus half of the
     // next has to fit in one step, with a gap to spare.
     const step = plotW / (n - 1);
-    if (step >= (n > 2 ? 1.5 : 2) * widest + font) return labels;
+    if (step >= (n > 2 ? 1.5 : 2) * widest + m.lineH) return labels;
   }
   return [];
 }
@@ -518,7 +541,7 @@ function buildLineChart(g) {
   const yLabel = g.getAttr('yLabel') || '';
   const requestedFont = clamp(Math.round(+g.getAttr('axisFontSize') || AXIS_FONT_DEFAULT),
                               CHART_FONT_MIN, CHART_FONT_MAX);
-  const axisFamily = g.getAttr('axisFontFamily') || 'monospace';
+  const axisFamily = g.getAttr('axisFontFamily') || AXIS_FAMILY_DEFAULT;
 
   g.add(new Konva.Rect({ width: w, height: h, fill: '#000', opacity: 0 })); // hit area
 
@@ -547,25 +570,30 @@ function buildLineChart(g) {
     // The data along the axes (Y numbers, X times) sits a step below the captions,
     // so the captions read as the headings for them.
     const tickFont = Math.max(CHART_FONT_MIN - 1, Math.round(axisFont * 0.8));
-    const yGutter = yLabel ? axisFont + 1 : 0;                     // rotated Y caption
+    // In a bitmap font (pixelfont.js) characters and lines are a fixed size that the
+    // browser's estimates would get wrong — so every gutter is measured with the font
+    // that will actually draw in it.
+    const am = textMetrics(axisFont, axisFamily), tm = textMetrics(tickFont, axisFamily);
+    const ttm = textMetrics(titleFont, axisFamily);
+    const yGutter = yLabel ? am.lineH + 1 : 0;                     // rotated Y caption
     // Y tick numbers, drawn whether or not the grid is. Capped: a pressure feed
     // reading 1013.25 wants 7 characters, which on a 120px chart would spend a
     // quarter of the frame on labels for the data itself.
     const tickW = ticks.length
-      ? Math.min(Math.round(Math.max(...tickLabels.map((l) => l.length)) * tickFont * 0.62) + 1,
+      ? Math.min(Math.round(Math.max(...tickLabels.map((l) => l.length)) * tm.charW) + 1,
                  Math.floor(w * 0.28))
       : 0;
     const left = yGutter + tickW + 1;
-    const top = title ? titleFont + 3 : 1;
-    const legendH = showLegend ? axisFont + 2 : 0;
+    const top = title ? ttm.lineH + 3 : 1;
+    const legendH = showLegend ? am.lineH + 2 : 0;
     // The X axis mirrors the Y: times under the axis, as the Y has its tick numbers,
     // whenever the samples carry real timestamps (the legacy sample data doesn't),
     // and the X caption on its own row beneath them, as the Y has its own gutter.
     const plotW = Math.max(4, w - left - 1);
-    const timeLabels = withTimes && time ? timeTickLabels(time, plotW, tickFont) : [];
-    const timeRowH = timeLabels.length ? tickFont + 1 : 0;
-    const bottom = 1 + timeRowH + (xLabel ? axisFont + 1 : 0) + legendH;
-    return { axisFont, titleFont, tickFont, yGutter, tickW, left, top, legendH,
+    const timeLabels = withTimes && time ? timeTickLabels(time, plotW, tm) : [];
+    const timeRowH = timeLabels.length ? tm.lineH + 1 : 0;
+    const bottom = 1 + timeRowH + (xLabel ? am.lineH + 1 : 0) + legendH;
+    return { axisFont, titleFont, tickFont, am, tm, ttm, yGutter, tickW, left, top, legendH,
              plotW, timeLabels, timeRowH, plotH: h - top - bottom };
   };
   // The requested size is a ceiling, not a promise. The rows it asks for (title,
@@ -577,11 +605,12 @@ function buildLineChart(g) {
   let lay = layoutAt(requestedFont);
   for (let f = requestedFont - 1; lay.plotH < minPlotH && f >= CHART_FONT_MIN; f--) lay = layoutAt(f);
   if (lay.plotH < 4) lay = layoutAt(lay.axisFont, false);
-  const { axisFont, titleFont, tickFont, yGutter, tickW, left, top, legendH,
+  const { axisFont, titleFont, tickFont, am, tm, ttm, yGutter, tickW, left, top, legendH,
           plotW, timeLabels, timeRowH } = lay;
   // Read back by the inspector, which says so when the size was cut down. Not
   // serialized: it is derived, and the next build recomputes it.
   g.setAttr('axisFontFit', axisFont);
+  g.setAttr('axisTickFit', tickFont);   // the smallest text drawn: what the font advice judges
   const plot = {
     x: left, y: top,
     w: plotW,
@@ -601,7 +630,7 @@ function buildLineChart(g) {
   const py = (v) => plot.y + (1 - clamp(scaleUnit(v, lo, hi, log), 0, 1)) * plot.h;
 
   if (title) {
-    g.add(new Konva.Text({
+    g.add(new PixelText({
       text: title, fontSize: titleFont, fontFamily: axisFamily, fontStyle: 'bold', fill: ink,
       x: 1, y: 0, width: Math.max(4, w - 2), wrap: 'none', ellipsis: true,
     }));
@@ -612,16 +641,17 @@ function buildLineChart(g) {
   // Drawn before the axis and the data, so neither is overdrawn by a grid line.
   // Each number is centred on its tick but kept clear of the title above and the
   // frame's bottom edge, which the top and bottom ticks would otherwise cross.
-  const tickMinY = title ? titleFont + 1 : 0;
+  const tickMinY = title ? ttm.lineH + 1 : 0;
   ticks.forEach((t, i) => {
     const y = Math.round(py(t)) + 0.5;
     g.add(new Konva.Line({
       points: [plot.x, y, showGrid ? plot.x + plot.w : plot.x + 3, y],
       strokeWidth: 1, ...(showGrid ? faintStroke(ink, 0.35) : { stroke: ink }),
     }));
-    g.add(new Konva.Text({
+    g.add(new PixelText({
       text: tickLabels[i], fontSize: tickFont, fontFamily: axisFamily, fill: ink,
-      x: yGutter, y: clamp(Math.round(y - tickFont / 2), tickMinY, h - tickFont),
+      // Centred on the capitals, which is where a number's ink is.
+      x: yGutter, y: clamp(Math.round(y - tm.capH / 2), tickMinY, h - tm.lineH),
       width: tickW, align: 'right',
     }));
   });
@@ -648,13 +678,13 @@ function buildLineChart(g) {
   // that fits: laid out horizontally it would need a gutter wider than the plot on
   // a 250px panel.
   if (yLabel) {
-    g.add(new Konva.Text({
+    g.add(new PixelText({
       text: yLabel, fontSize: axisFont, fontFamily: axisFamily, fill: ink,
       x: 0, y: plot.y + plot.h, rotation: -90, width: plot.h, align: 'center',
     }));
   }
   if (xLabel) {
-    g.add(new Konva.Text({
+    g.add(new PixelText({
       text: xLabel, fontSize: axisFont, fontFamily: axisFamily, fill: ink,
       x: plot.x, y: plot.y + plot.h + 2 + timeRowH, width: plot.w, align: 'center',
     }));
@@ -663,11 +693,11 @@ function buildLineChart(g) {
     // The ends are pinned inside the plot (left- and right-aligned) rather than
     // centred on their instant, so the first and last times can't hang off the frame.
     timeLabels.forEach(({ frac, text }) => {
-      const tw = Math.ceil(text.length * tickFont * 0.62) + 2;
+      const tw = Math.ceil(text.length * tm.charW) + 2;
       const x = plot.x + frac * plot.w;
       const [bx, align] = frac === 0 ? [plot.x, 'left']
         : frac === 1 ? [plot.x + plot.w - tw, 'right'] : [x - tw / 2, 'center'];
-      g.add(new Konva.Text({
+      g.add(new PixelText({
         text, fontSize: tickFont, fontFamily: axisFamily, fill: ink,
         x: Math.round(bx), y: plot.y + plot.h + 2, width: tw, align, wrap: 'none',
       }));
@@ -707,17 +737,17 @@ function buildLineChart(g) {
     const y = h - legendH + 1;
     labelled.forEach((s) => {
       const text = keyLegend ? (s.key || s.name) : (s.name || s.key);
-      const entryW = 10 + Math.ceil(text.length * axisFont * 0.62) + 5;
+      const entryW = 10 + Math.ceil(text.length * am.charW) + 5;
       // Clipped rather than wrapped or shrunk: the legend is one row by design, and
       // silently overflowing it would draw feed names off the edge of the panel.
       if (x + entryW > w && x > plot.x) return;
       // A dash sample rather than a colour chip: the dash is the part that survives
       // a mono panel, so it is the part the legend has to show.
       g.add(new Konva.Line({
-        points: [x, y + axisFont / 2, x + 8, y + axisFont / 2],
+        points: [x, y + Math.floor(am.capH / 2) + 0.5, x + 8, y + Math.floor(am.capH / 2) + 0.5],
         stroke: s.color, strokeWidth: 1, dash: s.dash.length ? s.dash : undefined,
       }));
-      g.add(new Konva.Text({
+      g.add(new PixelText({
         text, fontSize: axisFont, fontFamily: axisFamily, fill: ink,
         x: x + 10, y, width: Math.max(4, w - x - 10), ellipsis: true, wrap: 'none',
       }));
@@ -760,7 +790,10 @@ export function addLineChart(attrs = {}) {
   g.setAttr('gridLines', attrs.gridLines ?? false);
   g.setAttr('keyLegend', attrs.keyLegend ?? false);
   g.setAttr('axisFontSize', attrs.axisFontSize ?? AXIS_FONT_DEFAULT);
-  g.setAttr('axisFontFamily', attrs.axisFontFamily ?? 'monospace');
+  g.setAttr('axisFontFamily', attrs.axisFontFamily ?? AXIS_FAMILY_DEFAULT);
+  g.setAttr('axisFontUrl', attrs.axisFontUrl ?? '');
+  // A chart in a web font is built again once the face has loaded, like a label.
+  whenWebFont(g.getAttr('axisFontUrl'), () => { if (g.getLayer()) { rebuildWidget(g); scheduleDitherRefresh(); } });
   // Legacy sample data. Only reached when no feeds are bound (see chartSeries), so
   // a fresh unbound chart still shows a shape instead of an empty frame.
   g.setAttr('data', attrs.data ?? randTempSeries());
@@ -851,8 +884,8 @@ function buildGauge(g) {
   g.add(new Konva.Rect({ width: w, height: H, fill: '#000', opacity: 0 })); // hit area
 
   if (title) {
-    g.add(new Konva.Text({
-      text: title, fontSize: titleFont, fontFamily: 'monospace', fill: ink,
+    g.add(new PixelText({
+      text: title, fontSize: titleFont, fontFamily: captionFamily(titleFont), fill: ink,
       x: 0, y: 0, width: w, align: 'center',
     }));
   }
@@ -876,26 +909,30 @@ function buildGauge(g) {
   const labelFont = clamp(Math.round(valueFont * 0.6), 5, 20);
   const iconFont = showIcon ? clamp(Math.round(valueFont * 0.8), 6, 32) : 0;
   const gap = 1;
-  const stackH = (iconFont ? iconFont + gap : 0) + valueFont + (label ? labelFont + gap : 0);
+  // The gauge picks its own type (captionFamily): under 8 px a bitmap font, whose lines
+  // are taller than their nominal size — so line heights, not font sizes, stack here.
+  const valueFamily = captionFamily(valueFont), labelFamily = captionFamily(labelFont);
+  const valueH = textMetrics(valueFont, valueFamily).lineH, labelH = textMetrics(labelFont, labelFamily).lineH;
+  const stackH = (iconFont ? iconFont + gap : 0) + valueH + (label ? labelH + gap : 0);
   let y = Math.round(cy - stackH / 2);
 
   if (iconFont) {
-    g.add(new Konva.Text({
+    g.add(new PixelText({
       text: iconGlyph(g.getAttr('icon')),
       fontSize: iconFont, fontFamily: FA_FAMILY, fontStyle: FA_WEIGHT,
       fill: valueInk, x: 0, y, width: w, align: 'center',
     }));
     y += iconFont + gap;
   }
-  g.add(new Konva.Text({
+  g.add(new PixelText({
     text: frac === null ? '—' : fmtDecimals(gaugeValue(g), decimals),
-    fontSize: valueFont, fontFamily: 'monospace', fill: valueInk,
+    fontSize: valueFont, fontFamily: valueFamily, fill: valueInk,
     x: 0, y, width: w, align: 'center',
   }));
-  y += valueFont + gap;
+  y += valueH + gap;
   if (label) {
-    g.add(new Konva.Text({
-      text: label, fontSize: labelFont, fontFamily: 'monospace', fill: ink,
+    g.add(new PixelText({
+      text: label, fontSize: labelFont, fontFamily: labelFamily, fill: ink,
       x: 0, y, width: w, align: 'center',
     }));
   }
@@ -1070,8 +1107,9 @@ function buildBattery(g) {
   const frac = batteryFraction(g);
   const pctText = frac === null ? '—' : `${Math.round(Number(g.getAttr('feedValue')))}%`;
   const fontSize = Math.max(7, Math.round(bodyH * 0.6));
+  const family = captionFamily(fontSize);
   // Reserve a fixed 4-character box so the icon doesn't shift as the value changes.
-  const textW = g.getAttr('showPct') ? Math.ceil(fontSize * 0.62 * 4) : 0;
+  const textW = g.getAttr('showPct') ? Math.ceil(textMetrics(fontSize, family).charW * 4) : 0;
   const gap = g.getAttr('showPct') ? Math.max(2, Math.round(w * 0.08)) : 0;
   const totalW = w + gap + textW;
 
@@ -1103,9 +1141,9 @@ function buildBattery(g) {
   }
 
   if (g.getAttr('showPct')) {
-    g.add(new Konva.Text({
-      text: pctText, fontSize, fontFamily: 'monospace', fill: ink,
-      x: w + gap, y: Math.round((bodyH - fontSize) / 2), width: textW, align: 'left',
+    g.add(new PixelText({
+      text: pctText, fontSize, fontFamily: family, fill: ink,
+      x: w + gap, y: Math.round((bodyH - textMetrics(fontSize, family).capH) / 2), width: textW, align: 'left',
     }));
   }
 }
@@ -1254,8 +1292,8 @@ function buildFeedImage(g) {
   }));
   if (w >= 40 && h >= 14) {
     const fontSize = clamp(Math.round(Math.min(w / 8, h / 3)), 7, 14);
-    g.add(new Konva.Text({
-      text: g.getAttr('feedKey') ? 'no image yet' : 'IO image', fontSize, fontFamily: 'monospace',
+    g.add(new PixelText({
+      text: g.getAttr('feedKey') ? 'no image yet' : 'IO image', fontSize, fontFamily: captionFamily(fontSize),
       fill: ink, width: w, y: Math.round((h - fontSize) / 2), align: 'center',
     }));
   }
@@ -1491,7 +1529,7 @@ export function editLabel(node) {
     height: (node.height() + 6) * zoom + 'px',
     minHeight: '0',
     fontSize: node.fontSize() * zoom + 'px',
-    fontFamily: node.fontFamily(),
+    fontFamily: cssFamily(node.fontFamily()),
     lineHeight: String(node.lineHeight()),
     textAlign: node.align(),
     color: node.fill(),
@@ -1539,6 +1577,9 @@ export function editLabel(node) {
  * Called once from boot. Cheap when nothing uses an icon: no icon, no rebuild.
  */
 export function initIconFont() {
+  // The emoji fallback (pixelfont.js EMOJI_FONT) arrives whenever a text first needs it;
+  // each text lays itself out again, and the dither preview is re-taken here.
+  onEmojiFont(() => { layer.batchDraw(); scheduleDitherRefresh(); });
   onFaReady(() => {
     const withIcons = layer.find('.element')
       .filter((n) => n.getAttr('etype') === 'gauge' && n.getAttr('showIcon'));

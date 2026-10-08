@@ -809,6 +809,9 @@
 .bg-pick { display: inline-flex; align-items: center; gap: 6px; flex: none; }
 .bg-pick .swatch { width: 16px; height: 16px; }
 .hint { font-size: 12px; line-height: 1.5; color: var(--color-muted); }
+/* The font advice under a size field: red when the panel cannot draw the font at that
+   size, muted when it only rounds the size to the bitmap font's step. */
+.hint.hint-warn { color: var(--color-danger); }
 
 /* The canvas right-click menu (selection.js). Fixed, because it is placed at the
    pointer's viewport coordinates and appended to <body>, outside any scroller. */

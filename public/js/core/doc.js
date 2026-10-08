@@ -56,6 +56,7 @@ export function serialize() {
           fontFamily: n.fontFamily(), align: n.align(),
         });
         if (n.attrs.width !== undefined) base.width = Math.round(n.width());
+        if (n.getAttr('fontUrl')) base.fontUrl = n.getAttr('fontUrl');   // a web font's source
         // A linked label remembers where its text came from, how it wraps the value,
         // and the sample itself — the last of these is what makes a new reading part
         // of the pushed document rather than a live-only detail.
@@ -74,9 +75,11 @@ export function serialize() {
         const a = normalizeDatetimeAttrs({
           timeFmt: n.getAttr('timeFmt'), timeTz: n.getAttr('timeTz'), timeValue: n.getAttr('timeValue'),
           fill: n.fill(), fontSize: n.fontSize(), fontFamily: n.fontFamily(), align: n.align(),
+          fontUrl: n.getAttr('fontUrl'),
           width: n.attrs.width !== undefined ? n.width() : undefined,
         });
         if (a.width === undefined) delete a.width;
+        if (!a.fontUrl) delete a.fontUrl;
         Object.assign(base, a);
       } else if (etype === 'divider') {
         Object.assign(base, { fill: n.fill(), width: n.width(), height: n.height() });
@@ -154,6 +157,7 @@ export function serialize() {
           gridLines: !!n.getAttr('gridLines'), keyLegend: !!n.getAttr('keyLegend'),
           axisFontSize: n.getAttr('axisFontSize'), axisFontFamily: n.getAttr('axisFontFamily'),
         });
+        if (n.getAttr('axisFontUrl')) base.axisFontUrl = n.getAttr('axisFontUrl');
         // The legacy sample series is only reachable when no feeds are bound (see
         // chartSeries), so it is only worth saving in that case — carrying it
         // alongside real data would be dead weight in every write to the device.
