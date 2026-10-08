@@ -1,5 +1,22 @@
 /** Provider-neutral discovery. No script evaluation; presentation is a separate concern. */
 export const MAX_ITEMS = 100;
+// HTMLRewriter exposes raw attribute/text entities. Decode once before URL use.
+export function decodeHTMLText(value) {
+  const named = { amp: "&", lt: "<", gt: ">", quot: '"', apos: "'", nbsp: " " };
+  return String(value).replace(
+    /&(?:#(x[0-9a-f]+|\d+);?|(amp|lt|gt|quot|apos|nbsp);)/gi,
+    (whole, numeric, name) => {
+      if (!numeric) return named[name] ?? whole;
+      const code =
+        numeric[0].toLowerCase() === "x"
+          ? parseInt(numeric.slice(1), 16)
+          : Number(numeric);
+      return code > 0 && code <= 0x10ffff && !(code >= 0xd800 && code <= 0xdfff)
+        ? String.fromCodePoint(code)
+        : "\ufffd";
+    },
+  );
+}
 export function publicURL(value, base) {
   const u = new URL(value, base);
   const h = u.hostname.toLowerCase().replace(/\.$/, "");
@@ -66,19 +83,17 @@ export function googleAlbum(html, source) {
     return {
       title,
       author,
-      items: rows
-        .slice(0, MAX_ITEMS)
-        .map((r, i) => ({
-          id: r[0],
-          url: r[1][0],
-          width: r[1][1],
-          height: r[1][2],
-          title: `Photo ${i + 1}`,
-          credit: author,
-          source,
-          kind: "photo",
-          provider: "google-photos",
-        })),
+      items: rows.slice(0, MAX_ITEMS).map((r, i) => ({
+        id: r[0],
+        url: r[1][0],
+        width: r[1][1],
+        height: r[1][2],
+        title: `Photo ${i + 1}`,
+        credit: author,
+        source,
+        kind: "photo",
+        provider: "google-photos",
+      })),
       completeness:
         rows.length >= MAX_ITEMS || data[0] != null || !!data[2]
           ? "partial"
@@ -220,6 +235,14 @@ export function discoverRecords({
       if (k !== "itemListElement") walk(x, depth + 1);
   };
   fields.structuredData.forEach((d) => walk(d));
+  // Some social pages put the creator handle only in the title, alongside a name.
+  if (["bsky.app", "x.com", "twitter.com"].includes(new URL(source).hostname)) {
+    const handle = /\((@[^\s()]+)\)(?: on (?:X|Twitter))?$/.exec(fields.title);
+    if (handle && !fields.author.includes(handle[1]))
+      fields.author = fields.author
+        ? `${fields.author} (${handle[1]})`
+        : handle[1];
+  }
   // Responsive alternatives belong to one photo, not several carousel slides.
   for (const r of records) {
     if (r.tag === "img") {

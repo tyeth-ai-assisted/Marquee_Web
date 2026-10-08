@@ -7,6 +7,7 @@ import {
   googleAlbum,
   discoverRecords,
   manifest,
+  decodeHTMLText,
 } from "./discovery.js";
 const MAX_HTML = 2 * 1024 * 1024,
   MAX_IMAGE = 12 * 1024 * 1024;
@@ -131,7 +132,7 @@ export async function extractHTML(html, source) {
     .on("meta, img, source, a, base, [itemprop], [property]", {
       element(e) {
         const r = { tag: e.tagName };
-        for (const [k, v] of e.attributes) r[k] = v;
+        for (const [k, v] of e.attributes) r[k] = decodeHTMLText(v);
         if (
           currentPicture &&
           e.tagName === "source" &&
@@ -162,9 +163,19 @@ export async function extractHTML(html, source) {
       },
     });
   await rewrite.transform(new Response(html)).text();
-  return discoverRecords({ records, scripts, title, source });
+  return discoverRecords({
+    records,
+    scripts,
+    title: decodeHTMLText(title),
+    source,
+  });
 }
-export async function discover(value, env = {}, fetcher = fetch) {
+export async function discover(
+  value,
+  env = {},
+  fetcher = fetch,
+  extract = extractHTML,
+) {
   const ref = reference(value);
   const readJSON = async (u, body) => {
     const { response } = await remote(u, env, fetcher, body);
@@ -207,7 +218,7 @@ export async function discover(value, env = {}, fetcher = fetch) {
         title: g.title || "Google Photos album",
         fields: { title: g.title, author: g.author },
       }
-    : await extractHTML(text, url);
+    : await extract(text, url);
   return result;
 }
 function imageResponse(type) {
