@@ -69,6 +69,22 @@ reorders with the inspector's **Layer** row, the right-click menu, or
 <kbd>⌘</kbd>/<kbd>Ctrl</kbd>+<kbd>]</kbd> / <kbd>[</kbd> (add <kbd>Shift</kbd> for
 front / back); each is an ordinary edit, so it autosaves and mirrors like any other.
 
+### Fonts
+
+`fontFamily` on a label or datetime, and `axisFontFamily` on a chart, is one of:
+
+| value | draws as |
+|---|---|
+| `monospace`, `sans-serif`, `serif` | the browser's font of that family, so the bitmap differs between operating systems, and under 8 px it is mostly grey |
+| `tom-thumb` | Tom Thumb 3×5, a bitmap font; 6 px line, drawn at the largest whole multiple of 6 px that fits `fontSize` |
+| `gfx-5x7` | the Adafruit GFX 5×7 bitmap font; 8 px line, likewise in whole multiples of 8 px |
+| anything else | a web font, with the URL it loads from in `fontUrl` (`axisFontUrl` on a chart) |
+
+A font is never swapped for another: the family names what draws. A document from before
+the bitmap fonts existed carries only the three generic names and loads unchanged; a
+chart with no `axisFontFamily` draws in `gfx-5x7`, the default for a new chart.
+`fontUrl` / `axisFontUrl` is absent except on a web font.
+
 ### The `datetime` element
 
 The toolbox's **Date & time** prop. A text block showing Adafruit IO's time
@@ -93,7 +109,7 @@ refreshes the time when a new image is pushed.
 | `timeFmt` | a strftime string, always one of `TIME_PRESETS` in `public/js/core/timefmt.js`. Anything else loads as the default (Time). There is no free-form format. |
 | `timeTz` | a tz database name, or `""` for the timezone of the browser doing the push |
 | `timeValue` | the string IO last returned; `null` before the first read. A **sample** (see `core/samples.js`), so a new time is not a design change. |
-| `fill`, `fontSize`, `fontFamily`, `align` | as on a label |
+| `fill`, `fontSize`, `fontFamily`, `fontUrl`, `align` | as on a label |
 | `width` | present only when the box width is set; absent means the box auto-sizes to the text |
 
 `text` is not saved: it is `timeValue`, or the preset's example before the first read.

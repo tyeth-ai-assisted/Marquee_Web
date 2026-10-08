@@ -17,8 +17,10 @@ import {
   isWidget, rebuildWidget, elementColor, setElementColor, wireNode, nextId,
   INDICATOR_OPS, MIN_WIDGET_W, indicatorValueKnown, batteryFraction,
   isFeedLinked, linkedLabelText, feedValueAttr, CHART_RANGES, CHART_RAW_MAX,
-  CHART_FONT_MIN, CHART_FONT_MAX, gaugeValue, applyTimeValue, TEXT_PAD_MAX,
+  CHART_FONT_MIN, CHART_FONT_MAX, gaugeValue, applyTimeValue, TEXT_PAD_MAX, applyWebFont,
 } from './elements.js';
+import { FONT_OPTIONS, familyId, fontAdvice } from './pixelfont.js';
+import { webFonts, loadedWebFont, loadWebFont, resolveFontSource } from './webfont.js';
 import { feedImageToImage, bindFeedImage, MIN_WIDGET_H } from './elements.js';
 import { FEED_IMAGE_FITS, FEED_IMAGE_TYPES, sniffImageType } from '../core/feedimage.js';
 import { openFeedPicker, refreshFeedElements, refreshChart } from '../device/feeds.js';
@@ -192,20 +194,121 @@ function imageDitherRowsHTML(n) {
 }
 
 /**
+ * The font menu, with the URL row and the advice line that go with it — for the label
+ * and the datetime (prefix 'p') and the chart (prefix 'pCh'). The menu names every
+ * font the text can be in: the generic families and the two bitmap fonts, each with
+ * the size it is useful at in brackets; every web font loaded this session; and the
+ * way to load another. Nothing is chosen for the user — what the menu says is what
+ * draws (pixelfont.js). The URL row shows for a web font, or when "from a URL" is
+ * picked; the advice shows when fontAdvice() has something to say.
+ */
+function fontPickerHTML(prefix, family, url) {
+  const id = familyId(family);
+  const isWeb = !!url;
+  const fonts = webFonts();
+  if (isWeb && !fonts.some((f) => f.url === url)) fonts.push({ family: id, url });  // this text's own, not loaded yet
+  const known = isWeb || FONT_OPTIONS.some((o) => o.id === id);
+  const opts = FONT_OPTIONS.map((o) =>
+    `<option value="${o.id}"${!isWeb && id === o.id ? ' selected' : ''}>${escapeHtml(o.label)} (${escapeHtml(o.note)})</option>`)
+    .concat(fonts.map((f) =>
+      `<option value="web:${escapeAttr(f.url)}"${isWeb && f.url === url ? ' selected' : ''}>${escapeHtml(f.family)} (web)</option>`))
+    .concat(known ? [] : [`<option value="${escapeAttr(id)}" selected>${escapeHtml(id)}</option>`])
+    .concat(['<option value="__url">Web font from a URL…</option>']);
+  return {
+    select: `<select id="${prefix}Font" aria-label="Font" style="flex:1">${opts.join('')}</select>`,
+    rows: `
+    <div class="prop-row" id="${prefix}FontUrlRow"${isWeb ? '' : ' hidden'}>
+      <span class="label">URL</span>
+      <input type="text" id="${prefix}FontUrl" aria-label="Font URL" value="${escapeAttr(url || '')}"
+        placeholder=".woff2 / .ttf / .otf link, Google Fonts css2 link, or a Google Fonts name" style="flex:1; width:0">
+      <button type="button" class="btn btn-sm" id="${prefix}FontLoad">Load</button>
+    </div>
+    <p class="hint" id="${prefix}FontAdvice" hidden></p>`,
+  };
+}
+
+/**
+ * Wire a font picker. `apply(family, url)` puts the choice on the node; `size()` is
+ * the px the advice judges. Returns the advice refresher, for the size field to call
+ * per keystroke (it touches one element, so it never costs the field its focus).
+ */
+function bindFontPicker(prefix, { family, size, url, apply, warnOnly = false }) {
+  const advice = $(`${prefix}FontAdvice`), urlRow = $(`${prefix}FontUrlRow`), urlInput = $(`${prefix}FontUrl`);
+  const showAdvice = () => {
+    if (!advice) return;
+    const a = fontAdvice(family(), size());
+    const show = !!a && (!warnOnly || a.level === 'warn');
+    advice.hidden = !show;
+    advice.textContent = show ? a.text : '';
+    advice.classList.toggle('hint-warn', show && a.level === 'warn');
+  };
+  const sel = $(`${prefix}Font`);
+  if (!sel) return showAdvice;
+  // Brought in step with the node in place, not by refreshProps(): a full re-render
+  // would fold the chart's "Axes & scale" group shut under the user's hand.
+  const sync = () => {
+    const u = url();
+    if (u) {
+      const value = `web:${u}`;
+      if (![...sel.options].some((o) => o.value === value)) {
+        const o = new Option(`${familyId(family())} (web)`, value);
+        sel.insertBefore(o, sel.querySelector('option[value="__url"]'));
+      }
+      sel.value = value;
+      urlInput.value = u;
+    } else {
+      sel.value = familyId(family());
+    }
+    urlRow.hidden = !u;
+    showAdvice();
+  };
+  sel.addEventListener('input', (e) => {
+    const v = e.target.value;
+    if (v === '__url') {         // nothing changes until a URL loads
+      urlRow.hidden = false;
+      urlInput.focus();
+      return;
+    }
+    if (v.startsWith('web:')) {
+      const u = v.slice(4);
+      apply(loadedWebFont(u) || family(), u);
+    } else {
+      apply(v, '');
+    }
+    sync();
+  });
+  const load = async () => {
+    const src = resolveFontSource(urlInput.value);
+    if (!src) { toast('Paste a font file link, a Google Fonts css2 link, or a Google Fonts family name'); return; }
+    const btn = $(`${prefix}FontLoad`);
+    btn.disabled = true; btn.textContent = 'Loading…';
+    try {
+      const { family: fam } = await loadWebFont(src);
+      apply(fam, src);
+      toast(`Loaded ${fam}`);
+    } catch (e) {
+      toast(`Couldn't load that font — ${e?.message || e}`);
+    }
+    if (btn.isConnected) { btn.disabled = false; btn.textContent = 'Load'; sync(); }
+  };
+  $(`${prefix}FontLoad`).addEventListener('click', load);
+  urlInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); load(); } });
+  showAdvice();
+  return showAdvice;
+}
+
+/**
  * Size, font, box width and alignment — the type rows every Konva.Text element shares.
  * The ids are bound once below (pSize, pFont, pBoxW, pAlign), so the label and the
  * datetime get the same behaviour from the same handlers.
  */
 function textStyleRowsHTML(n) {
+  const font = fontPickerHTML('p', n.fontFamily(), n.getAttr('fontUrl'));
   return `
     <div class="prop-row">
       <span class="label">Size</span><input type="number" id="pSize" value="${n.fontSize()}" min="4" max="512">
-      <select id="pFont" style="flex:1">
-        <option value="monospace" ${n.fontFamily() === 'monospace' ? 'selected' : ''}>Mono</option>
-        <option value="sans-serif" ${n.fontFamily() === 'sans-serif' ? 'selected' : ''}>Sans</option>
-        <option value="serif" ${n.fontFamily() === 'serif' ? 'selected' : ''}>Serif</option>
-      </select>
-    </div>
+      ${font.select}
+    </div>${font.rows}
     <div class="prop-row">
       <span class="label">Box</span><input type="number" id="pBoxW" min="8"
         value="${n.attrs.width !== undefined ? Math.round(n.width()) : ''}" placeholder="auto">
@@ -413,6 +516,7 @@ export function refreshProps() {
       unreadable value draws an <b>empty</b> ring.</p>`;
   } else if (etype === 'linechart') {
     const feeds = n.getAttr('feeds') || [];
+    const chartFont = fontPickerHTML('pCh', n.getAttr('axisFontFamily'), n.getAttr('axisFontUrl'));
     html += `
     <div class="prop-grid">
       <label class="field"><span class="label">Width</span>
@@ -458,9 +562,8 @@ export function refreshProps() {
       <div class="prop-row">
         <span class="label">Chart text</span>
         <input type="number" id="pChFontSize" aria-label="Chart text size" value="${n.getAttr('axisFontSize') ?? 7}" min="${CHART_FONT_MIN}" max="${CHART_FONT_MAX}">
-        <select id="pChFont" aria-label="Chart font family" style="flex:1">${[['monospace', 'Mono'], ['sans-serif', 'Sans'], ['serif', 'Serif']].map(([v, l]) =>
-          `<option value="${v}"${(n.getAttr('axisFontFamily') || 'monospace') === v ? ' selected' : ''}>${l}</option>`).join('')}</select>
-      </div>
+        ${chartFont.select}
+      </div>${chartFont.rows}
       <p class="hint" id="pChFontFit"></p>
       <div class="prop-grid">
         <label class="field"><span class="label">Y minimum</span>
@@ -582,8 +685,12 @@ export function refreshProps() {
   // the context menu or an autofill would still fire `input` and overwrite text the
   // next feed read is about to replace anyway.
   bind('pText', (e) => { if (!isFeedLinked(n)) n.text(e.target.value); });
-  bind('pSize', (e) => n.fontSize(Math.max(4, +e.target.value || 4)));
-  bind('pFont', (e) => n.fontFamily(e.target.value));
+  // The font menu, its URL row and the advice under the size: see fontPickerHTML.
+  const showTextFontAdvice = bindFontPicker('p', {
+    family: () => n.fontFamily(), size: () => n.fontSize(), url: () => n.getAttr('fontUrl'),
+    apply: (fam, u) => { n.fontFamily(fam); applyWebFont(n, u); },
+  });
+  bind('pSize', (e) => { n.fontSize(Math.max(4, +e.target.value || 4)); showTextFontAdvice(); });
   bind('pBoxW', (e) => {
     const v = +e.target.value;
     n.setAttr('width', v >= 8 ? Math.round(v) : undefined); // blank = auto-size to text
@@ -759,6 +866,14 @@ export function refreshProps() {
   bind('pChScale', setChart('yScale'));
   // The chart may draw its text smaller than asked, to fit its height (see
   // buildLineChart). Say so beside the field, or the size looks ignored.
+  // The advice judges the tick numbers, the smallest text the chart draws, at the size
+  // they were actually drawn (axisTickFit). Only the red warning: a bitmap font's step
+  // note would be about sizes the chart derives for itself.
+  const showChartFontAdvice = etype === 'linechart' ? bindFontPicker('pCh', {
+    family: () => n.getAttr('axisFontFamily'), size: () => n.getAttr('axisTickFit') ?? n.getAttr('axisFontSize'),
+    url: () => n.getAttr('axisFontUrl'), warnOnly: true,
+    apply: (fam, u) => { n.setAttr('axisFontFamily', fam); n.setAttr('axisFontUrl', u || ''); rebuildWidget(n); },
+  }) : null;
   const showFontFit = () => {
     const hint = $('pChFontFit');
     if (!hint) return;
@@ -766,10 +881,10 @@ export function refreshProps() {
     hint.textContent = fit < asked
       ? `Drawn at ${fit}px — ${asked}px doesn't fit this chart's height. Make it taller for more.` : '';
     hint.hidden = !(fit < asked);
+    showChartFontAdvice?.();
   };
   if (etype === 'linechart') showFontFit();
   bind('pChFontSize', setChart('axisFontSize', (v) => clamp(Math.round(+v) || 7, CHART_FONT_MIN, CHART_FONT_MAX)));
-  bind('pChFont', setChart('axisFontFamily'));
   bind('pChDec', setChart('decimals', (v) => Math.max(0, Math.min(10, Math.round(+v) || 0))));
   bind('pChStep', (e) => { n.setAttr('stepped', e.target.checked); rebuildWidget(n); });
   bind('pChGrid', (e) => { n.setAttr('gridLines', e.target.checked); rebuildWidget(n); });

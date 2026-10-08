@@ -145,7 +145,7 @@ test('an unknown format normalizes to the default preset — there is no custom 
 test('defaults from an empty object', () => {
   assert.deepEqual(normalizeDatetimeAttrs({}), {
     timeFmt: DEFAULT_PRESET.fmt, timeTz: '', timeValue: null, fill: undefined,
-    fontSize: 20, fontFamily: 'monospace', align: 'left', width: undefined,
+    fontSize: 20, fontFamily: 'monospace', fontUrl: '', align: 'left', width: undefined,
   });
   assert.deepEqual(normalizeDatetimeAttrs(), normalizeDatetimeAttrs({}));
 });
@@ -175,10 +175,16 @@ test('timeValue: unread stays null, never "" or 0', () => {
 });
 
 test('bad style values fall back rather than reaching Konva', () => {
-  const a = normalizeDatetimeAttrs({ fontSize: 2, fontFamily: 'Comic Sans', align: 'justify', width: 3, timeTz: 7 });
+  const a = normalizeDatetimeAttrs({ fontSize: 2, fontFamily: '  ', fontUrl: 7, align: 'justify', width: 3, timeTz: 7 });
   assert.equal(a.fontSize, 20);
   assert.equal(a.fontFamily, 'monospace');
+  assert.equal(a.fontUrl, '');
   assert.equal(a.align, 'left');
+  // Any family name is allowed: a bitmap font's id, or a web font's family with its URL.
+  const web = normalizeDatetimeAttrs({ fontFamily: 'Press Start 2P', fontUrl: ' https://x.y/f.woff2 ' });
+  assert.equal(web.fontFamily, 'Press Start 2P');
+  assert.equal(web.fontUrl, 'https://x.y/f.woff2');
+  assert.equal(normalizeDatetimeAttrs({ fontFamily: 'tom-thumb' }).fontFamily, 'tom-thumb');
   assert.equal(a.width, undefined);
   assert.equal(a.timeTz, '');
   assert.equal(normalizeDatetimeAttrs({ fontSize: 33.6, width: 99.4 }).fontSize, 34);
