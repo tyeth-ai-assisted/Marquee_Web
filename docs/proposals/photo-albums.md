@@ -6,7 +6,7 @@ The main interaction is **paste an album or webpage link, select pictures, then 
 
 ## Goals and deployment boundary
 
-- Accept links people actually have: shared Google Photos albums, Flickr albums, ordinary galleries, direct images, feeds and manifests. Users do not need to find the underlying image URLs.
+- Accept links people actually have: shared Google Photos and iCloud Photos albums, Flickr albums, ordinary galleries, direct images, feeds and manifests. Users do not need to find the underlying image URLs.
 - Let users combine sources, select and reorder pictures, inspect captions and credits, and preview the result on their display palette.
 - Reuse PR #22's frame fitting, image decoding, asynchronous cancellation and distinction between authored design and sampled content.
 - Preserve a useful picture through network failures and refresh without counting playback as a design edit.
@@ -30,15 +30,16 @@ E-ink playback uses still frames, without transitions or unnecessary redraws. Pr
 
 Every carousel item accepts a URL, including a JPEG URL or a Twitter/X post. The builder can dump discovered items into an editable list in two forms: **album references** (`album-url#marquee-photo=1`, a one-based entry selector) or **direct image URLs** (which may expire or break). Album references rediscover the collection before selecting the entry; store a stable provider photo ID when available so insertion or reordering does not silently select another image. A bare page URL resolves its available images; a per-item selector chooses one. Generic pages and Twitter/X are best effort, not a promise to bypass sign-in or access restrictions. Unresolvable items retain the previous image and expose a Retry or Replace URL action.
 
-Put preparation guidance beside import: **For the best result, crop to the frame and pre-dither to your display palette before uploading.** Existing browser conversion still handles ordinary photos. For more permanent hosting, offer saving a prepared image to an Adafruit IO feed or hosting on GitHub, Flickr or a public Google Photos shared album. Feed storage must respect PR #22's history-off requirement and value-size ceiling; public hosting does not guarantee permanent image URLs. Store source references for rediscovery and explain that shared-link contents are accessible to holders of the link.
+Put preparation guidance beside import: **For the best result, crop to the frame and pre-dither to your display palette before uploading.** Existing browser conversion still handles ordinary photos. For more permanent hosting, offer saving a prepared image to an Adafruit IO feed or hosting on GitHub, Flickr or a public Google Photos or iCloud Photos shared album. Feed storage must respect PR #22's history-off requirement and value-size ceiling; public hosting does not guarantee permanent image URLs. Store source references for rediscovery and explain that shared-link contents are accessible to holders of the link.
 
-Add nightly GitHub Actions checks of the public example album, extracting its three photo records and downloading a resized image. On failure, open or update one repair issue with diagnostics, then assign GitHub Copilot where the repository supports its coding agent. The expected output is a repair PR for review, never an automatic merge. Retry a transient failure once, distinguish upstream/network failures from parser regressions, and avoid issue storms. Cron schedules are best effort; live-test results and workflow artifacts show last success. The workflow must exist on the default branch to run on its nightly schedule; a stacked draft PR alone does not activate it. Copilot repair depends on enabled repository access and permissions.
+Add nightly GitHub Actions checks of the public Google Photos and iCloud Photos example albums, extracting three and nine photo records respectively and verifying every JPEG download. On failure, open or update one repair issue with diagnostics, then assign GitHub Copilot where the repository supports its coding agent. The expected output is a repair PR for review, never an automatic merge. Retry a transient failure once, distinguish upstream/network failures from parser regressions, and avoid issue storms. Cron schedules are best effort; live-test results and workflow artifacts show last success. The workflow must exist on the default branch to run on its nightly schedule; a stacked draft PR alone does not activate it. Copilot repair depends on enabled repository access and permissions.
 
 | Source | Discovery route | Release expectation |
 |---|---|---|
 | Direct image URL | Inspect HTTP response and verify raster bytes | Initial implementation |
 | Ordinary gallery page | Open Graph, Schema.org and HTML images together | Initial implementation, best effort |
 | Google Photos shared album | Parse photo records in embedded page data | Initial implementation, explicitly best effort |
+| iCloud Photos public shared album | Anonymous CloudKit resolve/query; JPEG renditions, stable photo IDs and contributor credits | Included for `photos.icloud.com/shared/album/...`; best effort, first 100 photos |
 | JSON album manifest | Versioned list of image records | Initial implementation |
 | Local photos | Multi-file import, browser resize and embedding | Initial implementation |
 | Flickr public album | API adapter using album and owner IDs; paginate | Included adapter, API key configuration required; first page is bounded |
@@ -108,11 +109,11 @@ Feature completeness means these states are coherent and recoverable, not that e
 
 ## Current implementation and verification
 
-The stacked draft PR includes the Worker, generic metadata extraction, Google Photos/NASA/Flickr adapters, mixed URL and upload builder, special-reference/direct-URL exports, frame fitting, title/attribution display, sequential/shuffled playback, serialization and a nightly canary with conditional Copilot repair assignment. Metadata extraction is provider-neutral for the planned non-image cards PR.
+The stacked draft PR includes the Worker, generic metadata extraction, Google Photos/iCloud Photos/NASA/Flickr adapters, mixed URL and upload builder, special-reference/direct-URL exports, frame fitting, title/attribution display, sequential/shuffled playback, serialization and a nightly canary with conditional Copilot repair assignment. Metadata extraction is provider-neutral for the planned non-image cards PR.
 
-Verified locally: 364 tests pass, eight existing opt-in tests are skipped, and the supplied public album canary finds three records and downloads a resized JPEG. The suite includes actual Worker HTMLRewriter execution and stale-result/playback tests. Browser visual review remains outstanding because the cloud browser cannot reach the local preview server. No live IO writes or production deployment have been performed.
+Verified locally: 371 tests pass and eight existing opt-in tests are skipped. The public canaries check three Google Photos and nine iCloud Photos records and download every JPEG rendition. The suite includes actual Worker HTMLRewriter execution and stale-result/playback tests. Browser visual review remains outstanding because the cloud browser cannot reach the local preview server. No live IO writes or production deployment have been performed.
 
-Deployment requires a Worker secret and origin/route configuration; Flickr additionally needs an API key. Nightly scheduling requires the workflow on the default branch; automatic Copilot PRs additionally require enabled agent access and the configured user-token secret. Google/Twitter public access remains best effort. Albums currently embed at most 300 KB; larger storage, source reconciliation, full pagination, image-feed adapters, per-photo editing and browser-independent publishing remain follow-ups. This implementation does not claim all the roadmap acceptance steps are already complete.
+Deployment requires a Worker secret and origin/route configuration; Flickr additionally needs an API key. Nightly scheduling requires the workflow on the default branch; automatic Copilot PRs additionally require enabled agent access and the configured user-token secret. Google/iCloud/Twitter public access remains best effort. Albums currently embed at most 300 KB; larger storage, source reconciliation, full pagination, image-feed adapters, per-photo editing and browser-independent publishing remain follow-ups. This implementation does not claim all the roadmap acceptance steps are already complete.
 
 ## References
 
@@ -122,3 +123,11 @@ Deployment requires a Worker secret and origin/route configuration; Flickr addit
 - [Flickr album enumeration](https://www.flickr.com/services/api/flickr.photosets.getPhotos.html).
 - [NASA image library API](https://images.nasa.gov/docs/images.nasa.gov_api_docs.pdf), including search, asset manifests and albums.
 - [Cloudflare HTMLRewriter](https://developers.cloudflare.com/workers/runtime-apis/html-rewriter/), [Worker limits](https://developers.cloudflare.com/workers/platform/limits/) and [Images binding](https://developers.cloudflare.com/images/optimization/binding/).
+
+## iCloud Photos addition — 8 October 2026
+
+The supplied public Apple album resolves to nine photos. Its HTML Open Graph metadata provides only the cover; the adapter uses Apple's anonymous public CloudKit resolve/query protocol to enumerate the collection. No sign-in, share acceptance or Apple API key is required. It pairs asset and master records by ID, preserves provider order and stable photo IDs, returns captions/filenames with contributor or owner display names, and prefers JPEG copies over HEIC originals. Participant email addresses and public-access API tokens are not exported. Album references rediscover expiring CDN links.
+
+Apple sends these JPEGs with `application/octet-stream`, so the download path verifies raster signatures and returns the correct image MIME type. API requests use the existing DNS/size/time guards, limit partition hosts to Apple CloudKit and refuse POST redirects. No remote scripts execute. Private/invite-only albums and legacy `icloud.com/sharedalbum/#...` links remain outside this adapter; unsupported items or collections beyond 100 photos are labelled partial.
+
+The GitHub nightly canary now checks both supplied albums through the Worker's discovery/download code, independently retries each provider, checks photo counts and attribution, and verifies all twelve JPEG downloads. Failure of either provider follows the existing repair-issue/Copilot-PR path. Local regression fixtures contain synthetic names and IDs, plus a Miniflare test covering signed image import.

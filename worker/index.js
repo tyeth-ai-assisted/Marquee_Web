@@ -38,7 +38,7 @@ export async function bounded(response, limit) {
   }
   return b;
 }
-export async function remote(value, env = {}, fetcher = fetch) {
+export async function remote(value, env = {}, fetcher = fetch, jsonBody) {
   let u = publicURL(value);
   const allowed = (env.ALLOWED_HOSTS || "")
     .split(",")
@@ -52,7 +52,7 @@ export async function remote(value, env = {}, fetcher = fetch) {
       `https://cloudflare-dns.com/dns-query?name=${encodeURIComponent(u.hostname)}&type=A`,
       {
         headers: { accept: "application/dns-json" },
-        signal: AbortSignal.timeout(8000),
+        signal: AbortSignal.timeout(15000),
       },
     );
     if (!dns.ok) throw new Error("Cannot verify source hostname.");
@@ -66,12 +66,21 @@ export async function remote(value, env = {}, fetcher = fetch) {
       );
     const r = await fetcher(u.href, {
       redirect: "manual",
-      signal: AbortSignal.timeout(15000),
-      headers: { Accept: "text/html,application/json,image/*;q=0.9" },
+      credentials: "omit",
+      signal: AbortSignal.timeout(30000),
+      headers: {
+        Accept: "text/html,application/json,image/*;q=0.9",
+        ...(jsonBody === undefined ? {} : { "Content-Type": "text/plain" }),
+      },
+      ...(jsonBody === undefined
+        ? {}
+        : { method: "POST", body: JSON.stringify(jsonBody) }),
     });
     if ([301, 302, 303, 307, 308].includes(r.status)) {
       const next = r.headers.get("location");
       await r.body?.cancel();
+      if (jsonBody !== undefined)
+        throw new Error("Album API redirects are not supported.");
       if (!next) throw new Error("Invalid remote redirect.");
       u = publicURL(next, u);
       continue;
@@ -156,8 +165,8 @@ export async function extractHTML(html, source) {
 }
 export async function discover(value, env = {}, fetcher = fetch) {
   const ref = reference(value);
-  const provider = await providerCollection(ref.url, env, async (u) => {
-    const { response } = await remote(u, env, fetcher);
+  const provider = await providerCollection(ref.url, env, async (u, body) => {
+    const { response } = await remote(u, env, fetcher, body);
     return JSON.parse(
       new TextDecoder().decode(await bounded(response, MAX_HTML)),
     );
@@ -165,7 +174,7 @@ export async function discover(value, env = {}, fetcher = fetch) {
   if (provider) return provider;
   const { response, url } = await remote(ref.url, env, fetcher);
   const type = response.headers.get("content-type") || "";
-  if (type.startsWith("image/")) {
+  if (imageResponse(type)) {
     const bytes = await bounded(response, MAX_IMAGE);
     if (!rasterType(bytes)) throw new Error("Unsupported raster image.");
     return {
@@ -191,6 +200,37 @@ export async function discover(value, env = {}, fetcher = fetch) {
       }
     : await extractHTML(text, url);
   return result;
+}
+function imageResponse(type) {
+  return /^(?:image\/|application\/octet-stream\b|binary\/octet-stream\b)/i.test(
+    type,
+  );
+}
+export async function downloadImage(payload, env = {}, fetcher = fetch) {
+  let url = payload.url;
+  if (payload.provider === "google-photos")
+    url = url.split("=")[0] + "=w1600-h1600";
+  const ref = reference(url);
+  let response;
+  if (!ref.selected) response = (await remote(ref.url, env, fetcher)).response;
+  if (!response || !imageResponse(response.headers.get("content-type") || "")) {
+    await response?.body?.cancel();
+    const d = await discover(url, env, fetcher);
+    const item = ref.id
+      ? d.items.find((i) => i.id === ref.id)
+      : d.items[ref.index];
+    if (!item) throw new Error("Selected picture was not found.");
+    const imageURL =
+      item.provider === "google-photos"
+        ? item.url.split("=")[0] + "=w1600-h1600"
+        : item.url;
+    response = (await remote(imageURL, env, fetcher)).response;
+  }
+  const bytes = await bounded(response, MAX_IMAGE);
+  const mime = rasterType(bytes);
+  if (!mime)
+    throw new Error("This URL did not return a supported raster image.");
+  return { bytes, mime };
 }
 const enc = new TextEncoder();
 async function key(secret) {
@@ -316,29 +356,7 @@ export default {
           route.searchParams.get("token"),
           env.IMPORT_SECRET,
         );
-        let url = p.url;
-        if (p.provider === "google-photos")
-          url = url.split("=")[0] + "=w1600-h1600";
-        let { response } = await remote(reference(url).url, env);
-        if (
-          !(response.headers.get("content-type") || "").startsWith("image/")
-        ) {
-          await response.body?.cancel();
-          const d = await discover(url, env);
-          const ref = reference(url);
-          const item = ref.id
-            ? d.items.find((i) => i.id === ref.id)
-            : d.items[ref.index];
-          if (!item) throw new Error("Selected picture was not found.");
-          let imageURL = item.url;
-          if (item.provider === "google-photos")
-            imageURL = imageURL.split("=")[0] + "=w1600-h1600";
-          response = (await remote(imageURL, env)).response;
-        }
-        const bytes = await bounded(response, MAX_IMAGE);
-        const mime = rasterType(bytes);
-        if (!mime)
-          throw new Error("This URL did not return a supported raster image.");
+        const { bytes, mime } = await downloadImage(p, env);
         return new Response(bytes, {
           headers: {
             ...headers,

@@ -21,6 +21,7 @@ jobs:
   live:
     if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     permissions:
       contents: read
       issues: write
@@ -29,7 +30,7 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '24'
-      - name: Public Google Photos canary
+      - name: Public Google Photos and iCloud Photos canaries
         id: canary
         continue-on-error: true
         run: node scripts/test-album-live.mjs 2>&1 | tee album-canary.log

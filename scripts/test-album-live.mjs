@@ -1,40 +1,73 @@
-/** Public integration canary. Never print shared-link keys or CDN capabilities. */
+/** Public integration canaries. Never print shared-link keys or CDN capabilities. */
 import assert from "node:assert/strict";
-import { googleAlbum, rasterType } from "../worker/discovery.js";
-import { bounded } from "../worker/index.js";
-const album =
-  process.env.ALBUM_TEST_URL || "https://photos.app.goo.gl/n2MTqopAw9bjLRXKA";
-const expected = Number(process.env.ALBUM_TEST_COUNT || 3);
-let error;
-for (let attempt = 0; attempt < 2; attempt++) {
-  try {
-    const r = await fetch(album, { signal: AbortSignal.timeout(30000) });
-    assert.equal(r.status, 200, "Album page did not return HTTP 200");
-    const html = new TextDecoder().decode(await bounded(r, 2 * 1024 * 1024));
-    const d = googleAlbum(html, r.url);
-    assert.ok(d, "No photo records extracted");
-    assert.equal(
-      d.items.length,
-      expected,
-      "Public test album photo count changed",
-    );
-    const image = await fetch(d.items[0].url.split("=")[0] + "=w800-h800", {
-      signal: AbortSignal.timeout(30000),
-    });
-    assert.equal(image.status, 200, "Resized photo did not return HTTP 200");
-    const bytes = await bounded(image, 4 * 1024 * 1024);
-    assert.ok(rasterType(bytes), "Download is not a supported raster image");
-    assert.ok(bytes.length > 100, "Image download is unexpectedly small");
-    console.log(
-      `Public album canary passed: ${d.items.length} records; resized ${rasterType(bytes)} (${bytes.length} bytes).`,
-    );
-    process.exit(0);
-  } catch (e) {
-    error = e;
-    console.error(`Attempt ${attempt + 1}: ${e.message}`);
+import { discover, downloadImage } from "../worker/index.js";
+const albums = [
+  {
+    name: "Google Photos",
+    provider: "google-photos",
+    url:
+      process.env.ALBUM_TEST_URL ||
+      "https://photos.app.goo.gl/n2MTqopAw9bjLRXKA",
+    count: Number(process.env.ALBUM_TEST_COUNT || 3),
+  },
+  {
+    name: "iCloud Photos",
+    provider: "icloud-photos",
+    url:
+      process.env.ICLOUD_ALBUM_TEST_URL ||
+      "https://photos.icloud.com/shared/album/04bbOkVUmSU7P2jQ2F2GXsW0g",
+    count: Number(process.env.ICLOUD_ALBUM_TEST_COUNT || 9),
+  },
+];
+let failed = false;
+for (const album of albums) {
+  let passed = false;
+  for (let attempt = 0; attempt < 2 && !passed; attempt++) {
+    let step = "discover album";
+    try {
+      const d = await discover(album.url);
+      step = "verify photo count and metadata";
+      assert.ok(album.count > 0 && album.count <= 100);
+      assert.equal(d.items.length, album.count);
+      assert.equal(new Set(d.items.map((i) => i.id)).size, album.count);
+      assert.ok(
+        d.items.every(
+          (i) => i.provider === album.provider && i.credit && i.title,
+        ),
+      );
+      let size = 0;
+      for (const [index, item] of d.items.entries()) {
+        step = `download photo ${index + 1}`;
+        const { bytes, mime } = await downloadImage(item);
+        assert.equal(mime, "image/jpeg");
+        assert.ok(bytes.length > 100);
+        size += bytes.length;
+        console.log(
+          `${album.name}: verified photo ${index + 1}/${d.items.length}.`,
+        );
+      }
+      console.log(
+        `${album.name} canary passed: ${d.items.length} photos; all JPEG downloads verified (${size} bytes).`,
+      );
+      passed = true;
+    } catch (e) {
+      // Third-party error strings may include signed URLs; report a safe stage.
+      const detail = /^Source returned HTTP \d+\.$/.test(e.message)
+        ? ` ${e.message}`
+        : e.name === "TimeoutError"
+          ? " Request timed out."
+          : e.code === "ERR_ASSERTION"
+            ? " Unexpected photo count, metadata or image bytes."
+            : " Public-source request or parsing failed.";
+      console.error(
+        `${album.name} attempt ${attempt + 1} failed at: ${step}.${detail}`,
+      );
+    }
   }
+  if (!passed) failed = true;
 }
-console.error(
-  "Public album canary failed. Check upstream access, fixture count and callback parsing.",
-);
-process.exit(1);
+if (failed)
+  console.error(
+    "Public album canary failed. Check upstream public access, expected counts and provider parsing.",
+  );
+process.exitCode = failed ? 1 : 0;
