@@ -11,6 +11,7 @@
 
 import { display, PALETTES, neutralShades, ditherChipLabel } from './palette.js';
 import { IMAGE_DITHERS, imageDitherOf } from './imagedither.js';
+import { panelShowsGreys } from '../device/presets.js';
 import { stage, layer, tr, snap, editorOpts, suspendDitherPreview, scheduleDitherRefresh } from './stage.js';
 import {
   isWidget, rebuildWidget, elementColor, setElementColor, wireNode, nextId,
@@ -600,7 +601,10 @@ export function refreshProps() {
         instead of its name.</p>
     </details>
     <p class="hint">Lines are told apart by colour <b>and</b> by dash pattern — on a
-      mono panel the colours all collapse to ink.</p>`;
+      mono panel the colours all collapse to ink.</p>${display.type === 'mono' && panelShowsGreys(display.panel) ? `
+    <p class="hint">This panel can show 4 greys, which draws the grid and smooth lines in
+      grey instead of dots and steps. Set Mode to Grayscale 4 in Display settings,
+      then use <b>Update Wi-Fi</b> on the display list to write it to the board.</p>` : ''}`;
   } else if (etype === 'feedimage') {
     // The Feed and Value rows first, as on every bound element; then the frame. No
     // natural-size reset: the picture changes with every reading, so the frame is the
