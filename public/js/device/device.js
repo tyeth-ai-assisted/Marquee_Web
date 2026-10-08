@@ -165,7 +165,7 @@ async function pushToDisplay() {
   try {
     // Sampled feed values are part of serialize(), so refresh before snapshotting:
     // sampling after would bake a signature the very next edit disagrees with.
-    await refreshFeedElements();
+    await refreshFeedElements(undefined, { advanceCarousels: true });
     const doc = serialize();
 
     const r = await renderOrReport('push to the display');
@@ -756,7 +756,7 @@ async function queueForNextTake() {
   try {
     // Bound feed values are part of the render, so re-read them first — same
     // reason as the push.
-    await refreshFeedElements();
+    await refreshFeedElements(undefined, { advanceCarousels: true });
     const doc = serialize();
 
     const r = await renderOrReport('queue the dashboard');
@@ -868,6 +868,7 @@ function liveLog(line) {
 
 /** Is someone's hand on the canvas right now? */
 function liveStageBusy() {
+  if (document.querySelector('#albumModal:not(.hidden)')) return true;
   if (Konva && typeof Konva.isDragging === 'function' && Konva.isDragging()) return true;
   const el = document.activeElement;
   if (!el || el === document.body || typeof el.closest !== 'function') return false;
@@ -938,7 +939,7 @@ async function takeLiveTake(reason) {
   try {
     // Best-effort by contract: a failed read leaves the previous value rather than
     // blanking the element, so partial freshness still beats none.
-    const allRead = await refreshFeedElements();
+    const allRead = await refreshFeedElements(undefined, { advanceCarousels: true });
     if (epoch !== stateEpoch) return;
 
     // renderBitmap() rather than renderOrReport(): that one toasts, and this runs on the

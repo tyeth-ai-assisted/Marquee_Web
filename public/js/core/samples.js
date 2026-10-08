@@ -59,6 +59,7 @@ export const SAMPLE_KEYS = {
   // The time IS the reading, and it changes on every take. Format and zone stay.
   datetime: ['timeValue'],
   feedimage: ['src', 'natW', 'natH'],
+  carousel: ['src', 'natW', 'natH', 'slideIndex', 'shownAt'],
 };
 
 /**
@@ -84,7 +85,7 @@ export function stripSamples(el) {
   const out = { ...el };
   for (const k of keys) {
     // The one conditional in the file: see the notes on `label` and `feedimage` above.
-    if (LINKED_ONLY.has(k) && !out.feedKey) continue;
+    if (LINKED_ONLY.has(k) && out.etype !== 'carousel' && !out.feedKey) continue;
     delete out[k];
   }
   return out;

@@ -7,6 +7,7 @@
  * wiring between them and the screen.
  */
 
+import { initAlbumBuilder, openAlbumBuilder } from '../albums/builder.js';
 import { editorOpts, drawGrid, applyZoom, fitZoom, zoom, showDitherPreview, hideDitherPreview, ditherPreviewOn, syncDitherPreviewBtn } from '../canvas/stage.js';
 import { select, refreshProps, duplicateSelected } from '../canvas/selection.js';
 import {
@@ -231,6 +232,8 @@ function closeAllPopovers(opts) {
 }
 
 export function initA7({ onEnter }) {
+  initAlbumBuilder();
+  $('addAlbumBtn').addEventListener('click', () => openAlbumBuilder());
   // ---- toolbox ----
   $('addLabel').addEventListener('click', () => select(addLabel()));
   $('addDivider').addEventListener('click', () => select(addDivider()));

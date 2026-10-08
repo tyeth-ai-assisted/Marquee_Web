@@ -532,6 +532,7 @@
           <button type="button" class="btn prop-btn" id="addChart"><span class="tile">∿</span>Chart</button>
           <button type="button" class="btn prop-btn" id="addGaugeBtn"><span class="tile">◠</span>Gauge</button>
           <button type="button" class="btn prop-btn" id="addImageBtn"><span class="tile">▣</span>Image</button>
+          <button type="button" class="btn prop-btn" id="addAlbumBtn"><span class="tile">▧</span>Photo album</button>
           <input type="file" id="imgInput" accept="image/png,image/jpeg,image/bmp,.png,.jpg,.jpeg,.bmp" hidden>
           <!-- A picture READ FROM A FEED — a camera project's latest frame, published as
                base64. Re-read on every push and every live take, like linked text. The
@@ -797,6 +798,23 @@
 
 <!-- Import canvas.json. Opened by core/doc.js once the file has validated; the active
      display always wins, so this only asks how to place the artwork on it. -->
+<div class="modal-backdrop hidden" id="albumModal">
+  <div class="modal album-modal" role="dialog" aria-modal="true" aria-labelledby="albumTitle">
+    <div class="modal-head"><h4 id="albumTitle">Build a photo album</h4><button type="button" class="modal-close" id="albumClose" aria-label="Close album builder">✕</button></div>
+    <label class="field">Album name<input id="albumName" maxlength="100"></label>
+    <label class="field">Image, album or webpage URLs (one per line)<textarea id="albumUrls" rows="3" placeholder="Paste JPEG URLs, shared albums or posts here"></textarea></label>
+    <div class="prop-row"><button type="button" class="btn btn-sm" id="albumDiscover">Find pictures</button><label class="btn btn-sm">Upload photos<input type="file" id="albumUploads" accept="image/png,image/jpeg,image/gif,image/webp,image/bmp" multiple></label><label class="btn btn-sm">Import album JSON<input type="file" id="albumManifest" accept="application/json,.json"></label></div>
+    <details><summary>Importer connection</summary><label class="field">Cloudflare Worker address<input id="albumWorker" type="url" placeholder="Leave blank for same-origin /api/albums"></label><p class="hint">URL imports require the configured Worker. Local uploads work without it.</p></details>
+    <p class="hint">For best results, crop to your frame and pre-dither to your display palette. Prepared PNGs keep their pixels when no resize is needed. For longer-lived hosting, save prepared pictures to IO feeds (history off, within its size limit), GitHub, Flickr or a public Google Photos shared album. Direct image links may expire. Shared links give access to anyone holding the link.</p>
+    <div class="prop-row"><button type="button" class="btn btn-sm" id="albumSelectAll">Select all</button><button type="button" class="btn btn-sm" id="albumSelectNone">Clear selection</button><select id="albumMode" aria-label="URL export format"><option value="references">Album item references</option><option value="direct">Direct image URLs (may expire)</option></select></div>
+    <p id="albumStatus" role="status" aria-live="polite"></p><p id="albumCount" class="hint"></p>
+    <div id="albumGrid" class="album-grid"></div>
+    <p class="hint">Playback runs on display takes while this browser app stays open. Preview buttons do not publish. Attribution is on by default; you can disable it in the frame inspector.</p>
+    <div class="modal-actions"><button type="button" class="btn btn-sm" id="albumExportList">Export URL list</button><button type="button" class="btn btn-sm" id="albumExportJson">Export album JSON</button><button type="button" class="btn btn-sm" id="albumCancel">Cancel</button><button type="button" class="btn btn-sm btn-primary" id="albumSave">Save carousel</button></div>
+  </div>
+</div>
+<dialog id="albumEnlarge"><button type="button" id="albumEnlargeClose">Close</button><img alt="Enlarged album picture"></dialog>
+
 <div class="modal-backdrop hidden" id="importModal">
   <div class="modal import-modal" role="dialog" aria-modal="true" aria-labelledby="importTitle">
     <div class="modal-head">

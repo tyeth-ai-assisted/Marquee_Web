@@ -13,7 +13,7 @@ import { layer } from '../canvas/stage.js';
 import {
   addLabel, addFeedImage, imageToFeedImage, setFeedImageSrc, decodeImage, applyFeedImage,
   bindFeedImage, feedImageGen, rebuildWidget, applyFeedValue, applyTimeValue, FEED_ETYPES,
-  CHART_RAW_MAX,
+  CHART_RAW_MAX, refreshCarousel,
 } from '../canvas/elements.js';
 import { parseFeedImage, feedImageProblem } from '../core/feedimage.js';
 import { readIoMillis } from './iotime.js';
@@ -309,6 +309,7 @@ export function feedBoundElements(nodes) {
     charts: all.filter((n) => n.getAttr('etype') === 'linechart' && (n.getAttr('feeds') || []).length),
     // Always live: a datetime has no binding to be missing, the time is its content.
     datetimes: all.filter((n) => n.getAttr('etype') === 'datetime'),
+    carousels: all.filter((n) => n.getAttr('etype') === 'carousel'),
     images: all.filter((n) => n.getAttr('etype') === 'feedimage' && n.getAttr('feedKey')),
   };
 }
@@ -359,8 +360,8 @@ async function refreshDatetimes(datetimes) {
 
 /** Is there anything on this canvas that a feed could change? */
 export function hasFeedBindings() {
-  const { targets, charts, datetimes, images } = feedBoundElements();
-  return !!(targets.length || charts.length || datetimes.length || images.length);
+  const { targets, charts, datetimes, images, carousels } = feedBoundElements();
+  return !!(targets.length || charts.length || datetimes.length || images.length || carousels.some(n=>!n.getAttr('paused')));
 }
 
 /**
@@ -385,10 +386,11 @@ export function feedReadCost() {
  * Charts are handled alongside the single-value elements but through their own
  * request, because they need a window rather than a last value.
  */
-export async function refreshFeedElements(nodes) {
-  const { targets, charts, datetimes, images } = feedBoundElements(nodes);
-  if (!targets.length && !charts.length && !datetimes.length && !images.length) return true;
+export async function refreshFeedElements(nodes, { advanceCarousels = false } = {}) {
+  const { targets, charts, datetimes, images, carousels } = feedBoundElements(nodes);
+  if (!targets.length && !charts.length && !datetimes.length && !images.length && !carousels.length) return true;
   const results = await Promise.all([
+    ...carousels.map((n) => refreshCarousel(n, { advance: advanceCarousels })),
     ...images.map((n) => refreshFeedImage(n)),
     ...targets.map(async (n) => {
       const v = await readFeedValue(n.getAttr('feedKey'));

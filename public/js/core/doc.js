@@ -20,7 +20,7 @@ import { layer, fitZoom, hideDitherPreview } from '../canvas/stage.js';
 import { select } from '../canvas/selection.js';
 import {
   addLabel, addDivider, addLineChart, addGauge, addIndicator, addBattery, addImage, addDatetime,
-  addFeedImage, feedImageSettled, remapColorsToPalette,
+  addFeedImage, addCarousel, feedImageSettled, remapColorsToPalette,
 } from '../canvas/elements.js';
 import { normalizeDatetimeAttrs } from './timefmt.js';
 import { applyDisplayToForm, setResolution, applyDither } from './config.js';
@@ -73,6 +73,8 @@ export function serialize() {
           src: n.getAttr('src'), w: Math.round(n.width()), h: Math.round(n.height()),
           natW: n.getAttr('natW'), natH: n.getAttr('natH'),
         });
+      } else if (etype === 'carousel') {
+        Object.assign(base, {w:n.getAttr('w'),h:n.getAttr('h'),fit:n.getAttr('fit'),items:n.getAttr('items'),albumName:n.getAttr('albumName'),interval:n.getAttr('interval'),order:n.getAttr('order'),seed:n.getAttr('seed'),paused:n.getAttr('paused'),showCaption:n.getAttr('showCaption'),slideIndex:n.getAttr('slideIndex'),shownAt:n.getAttr('shownAt'),src:n.getAttr('src'),natW:n.getAttr('natW'),natH:n.getAttr('natH')});
       } else if (etype === 'feedimage') {
         // The frame and the fit are the design; the picture (src and its natural size)
         // is the last reading, saved for the same reason a label's feedValue is — so a
@@ -194,6 +196,8 @@ export function deserialize(doc, { keepDisplay = false } = {}) {
         img.onerror = () => resolve();
         img.src = el.src;
       }));
+    } else if (el.etype === 'carousel') {
+      loading.push(feedImageSettled(addCarousel(el)));
     } else if (el.etype === 'feedimage') {
       // Built at once, with its frame; the saved picture decodes behind it and is
       // awaited by the same promise as a static image's, for the same reason.

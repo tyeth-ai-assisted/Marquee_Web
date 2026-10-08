@@ -18,11 +18,11 @@ The existing project is a static browser app. Its live-take publisher runs in th
 
 Add **Photo album** beside Image and Linked image in the toolbox. It opens a builder with three entry points: **Paste a link**, **Upload photos**, and **Import album JSON**. Multiple links and multiple files can be added to the same album. Example collection suggestions should include family albums, NASA mission photography, artwork, historical photographs and maker project pictures.
 
-Discovery shows thumbnails progressively and labels the result **Complete**, **More available**, or **Partial**. A page preview is identified as a cover, not represented as a complete album. Errors explain the next useful action: retry, load more, choose another link or upload files. The user can cancel discovery and close the builder without late responses changing their canvas.
+Discovery shows thumbnails progressively and labels the result **Complete**, **More available**, or **Partial**. An Open Graph title and image preview is a valid single-item result, including a tweet or quote page. A preview does not imply that all collection images have been enumerated. Errors explain the next useful action: retry, load more, choose another link or upload files. The user can cancel discovery and close the builder without late responses changing their canvas.
 
 The grid supports select all, clear, individual selection, selected count, thumbnail enlargement, accessible keyboard controls, and drag ordering with Move up and Move down alternatives. The album editor supports removing items, changing the album name, captions and credit text, selecting a cover, and adding more sources. Reopening it preserves existing selections and order. Save and Cancel are transactional: only Save changes the document. Excluded source items remain excluded across a later refresh.
 
-The carousel inspector offers Edit album, Previous, Next, pause/resume, a position counter, Fit inside/Fill frame/Stretch, frame dimensions, sequential/shuffled order, and time per picture. The default is a ten-minute hold, a contained image, sequential ordering and no caption. Caption and attribution display are opt-in; attribution metadata remains in exports even when hidden. Per-image crop/focal point, rotation, background colour and contrast are desirable subsequent controls rather than silently assumed features.
+The carousel inspector offers Edit album, Previous, Next, pause/resume, a position counter, Fit inside/Fill frame/Stretch, frame dimensions, sequential/shuffled order, and time per picture. The default is a ten-minute hold, a contained image, sequential ordering and title plus attribution. Title and author or username attribution display is on by default for all sources and can be switched off; attribution metadata remains in exports even when hidden. Per-image crop/focal point, rotation, background colour and contrast are desirable subsequent controls rather than silently assumed features.
 
 E-ink playback uses still frames, without transitions or unnecessary redraws. Preview navigation never publishes to IO. Playback chooses the due slide on the existing publish/take path and awaits decode before the bitmap is captured. A slow image keeps the previous frame. A late browser timer does not rapidly publish all missed slides. The picture interval and device wake interval are separate settings: a one-minute wake can hold a picture for ten minutes.
 
@@ -41,8 +41,8 @@ Add nightly GitHub Actions checks of the public example album, extracting its th
 | Google Photos shared album | Parse photo records in embedded page data | Initial implementation, explicitly best effort |
 | JSON album manifest | Versioned list of image records | Initial implementation |
 | Local photos | Multi-file import, browser resize and embedding | Initial implementation |
-| Flickr public album | API adapter using album and owner IDs; paginate | Next adapter, API key configuration required |
-| NASA image collections | Search/album API plus asset manifests | Next adapter; collection search rather than a single daily image |
+| Flickr public album | API adapter using album and owner IDs; paginate | Included adapter, API key configuration required; first page is bounded |
+| NASA image collections | Search/album API plus asset manifests | Included adapter; collection search rather than a single daily image |
 | RSS and Atom | Image enclosures and media fields | Next adapter |
 | Museum and archive collections | Provider APIs where available; generic scraper otherwise | Incremental adapters |
 | Private cloud folders | Explicit OAuth adapters | Later; generic scraping does not grant access |
@@ -57,6 +57,8 @@ Use provider adapters first where they offer collection semantics. Generic extra
 - Schema.org: JSON-LD, Microdata and RDFa; handle arrays, `@graph`, nested `ImageObject`, `image`, `contentUrl`, `thumbnailUrl`, `associatedMedia` and ordered `ItemList` records. Resolve local `@id` references with bounded traversal. A webpage `url` is not automatically image bytes.
 - HTML: `img` sources, responsive `srcset`, `picture` source alternatives, common lazy-load attributes and direct-image links. Resolve relative URLs against the final page URL and its valid `base` element. Group responsive alternatives into one image instead of duplicate slides.
 - Google Photos: locate the embedded callback payload and parse only the bounded JSON data portion, without evaluating JavaScript. Distinguish photo records from album covers and avatars. Detect a continuation marker or ambiguous enumeration and return partial status.
+
+Retain provider-neutral title, description, author and structured metadata for a future stacked PR supporting non-image cards and JSON fields in card templates. This image-only PR renders images and optional title/attribution.
 
 Keep provenance and available size variants for each candidate. Preserve provider order or DOM order unless an explicit ordered collection supplies a better sequence. Deduplicate by provider ID and exact asset identity; do not strip arbitrary query strings because they may distinguish signed URLs or different pictures. Rank content images above logos, icons, trackers and cover previews, but keep a Show all option so a heuristic never permanently hides a wanted image.
 
@@ -98,11 +100,19 @@ Source updates are independent from picture rotation. Default to a frozen curate
 2. **Worker and extraction.** Add generic structured-data/HTML discovery, public Google Photos extraction, manifest support, safe image import and local fixture tests. Verify the supplied live Google album and one resized download.
 3. **Builder and widget.** Add transactional album editing, local import, selection/order, bounded embedding, carousel frame, playback settings and persistence. Integrate sample stripping, canvas import fitting, decode settlement and the existing bitmap path.
 4. **Verification.** Run the existing suite plus meaningful extraction, malformed-input, redirect/token, album order, cancellation, playback and save/reload tests. Verify the builder and inspector at desktop/mobile widths, keyboard navigation, palette preview and export without Canvas taint. Keep live IO writes opt-in.
-5. **Provider expansion.** Flickr, NASA and image feeds; then museum adapters, larger asset storage and optional unattended rendering. Track these separately from the initial implemented slice.
+5. **Provider expansion.** Image feeds and fuller pagination; then museum adapters, larger asset storage and optional unattended rendering. Track these separately from the initial implemented slice.
 
 Initial release acceptance: a user can paste the supplied Google album, select all three images, reorder them, save a contained carousel, move between pictures, reload, and export/import the canvas with pictures intact. An ordinary page with Open Graph, JSON-LD and responsive HTML contributes deduplicated candidates from all three. A failed import leaves the original design intact; playback does not create false queued edits or repeated canvas-state publications. The interface identifies partial discovery and the browser-running requirement.
 
 Feature completeness means these states are coherent and recoverable, not that every public or private website can be scraped. Each subsequent adapter uses the same builder and carousel rather than adding a different user workflow.
+
+## Current implementation and verification
+
+The stacked draft PR includes the Worker, generic metadata extraction, Google Photos/NASA/Flickr adapters, mixed URL and upload builder, special-reference/direct-URL exports, frame fitting, title/attribution display, sequential/shuffled playback, serialization and a nightly canary with conditional Copilot repair assignment. Metadata extraction is provider-neutral for the planned non-image cards PR.
+
+Verified locally: 364 tests pass, eight existing opt-in tests are skipped, and the supplied public album canary finds three records and downloads a resized JPEG. The suite includes actual Worker HTMLRewriter execution and stale-result/playback tests. Browser visual review remains outstanding because the cloud browser cannot reach the local preview server. No live IO writes or production deployment have been performed.
+
+Deployment requires a Worker secret and origin/route configuration; Flickr additionally needs an API key. Nightly scheduling requires the workflow on the default branch; automatic Copilot PRs additionally require enabled agent access and the configured user-token secret. Google/Twitter public access remains best effort. Albums currently embed at most 300 KB; larger storage, source reconciliation, full pagination, image-feed adapters, per-photo editing and browser-independent publishing remain follow-ups. This implementation does not claim all the roadmap acceptance steps are already complete.
 
 ## References
 
