@@ -2,10 +2,13 @@
 import { publicURL, MAX_ITEMS } from "./discovery.js";
 import { icloudAlbum } from "./icloud.js";
 import { flickrSource } from "./flickr.js";
+import { mastodonPreview } from "./social.js";
 export async function providerCollection(value, env, readJSON) {
   const u = publicURL(value);
   const apple = await icloudAlbum(u.href, readJSON);
   if (apple) return apple;
+  const social = await mastodonPreview(u.href, readJSON);
+  if (social) return social;
   if (["images.nasa.gov", "images-api.nasa.gov"].includes(u.hostname)) {
     const q = u.searchParams.get("search") || u.searchParams.get("q");
     const album = /\/album\/([^/]+)/.exec(u.pathname)?.[1];

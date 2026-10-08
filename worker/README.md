@@ -38,3 +38,9 @@ URL-backed pictures are stored as links only, whichever export format is chosen,
 `.github/workflows/albums.yml` runs unit tests on pushes/PRs and both unit/live checks nightly at 03:17 UTC, with a manual dispatch option. GitHub schedules only run after this workflow is on the default branch. Failure of any provider canary creates or updates one repair issue and records diagnostics in an artifact. Enable GitHub Copilot cloud agent and provide `COPILOT_AGENT_TOKEN` as an Actions secret containing a user token with metadata read and actions, contents, issues and pull-request write access. The normal Actions installation token cannot start Copilot. Without that secret the issue remains actionable and the workflow reports the missing configuration. Copilot's output is a repair PR for review, never an automatic merge.
 
 See [GitHub's Copilot API documentation](https://docs.github.com/en/copilot/how-tos/use-copilot-agents/cloud-agent/use-cloud-agent-via-the-api) and the [proposal](../docs/proposals/photo-albums.md).
+
+## Linked-card follow-up
+
+The follow-up adds `npm run test:previews:live` for the exact X, Bluesky and two Mastodon URLs in `test/fixtures/linked-card-sources.json`, with bagder before freediverx. These tests download the actual preview images and verify title/creator metadata; logos and avatars do not satisfy the tests. X/Bluesky use public Open Graph metadata. Mastodon attachment and link-card previews use its public status API, including `card.image` when the page omits `og:image`. No API key or signed-in session is used.
+
+Preview canaries run in the same nightly GitHub workflow and use its existing Copilot repair path. See the [linked-card proposal](../docs/proposals/linked-cards.md) for the remaining card editor and JSON-field mapping work.
