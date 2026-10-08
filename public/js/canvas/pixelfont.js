@@ -83,11 +83,43 @@ export function fontLabel(family) {
   return FONT_OPTIONS.find((o) => o.id === id)?.label || id;
 }
 
-/** The CSS family to draw `family` with on screen (the inline editor's textarea). */
+/**
+ * The monochrome emoji font every browser font falls back to for a character it lacks.
+ * Without it the browser reaches for the OS's colour emoji (Segoe UI Emoji, Apple Color
+ * Emoji), whose shaded bitmaps snap to almost nothing on a two-colour panel: a ✅ comes
+ * out as an L-shaped bracket. Noto Emoji is line art, drawn as ink, the same everywhere.
+ * Loaded on demand (webfont.js) the first time a text contains one.
+ */
+export const EMOJI_FONT = 'Noto Emoji';
+
+/** Whether `text` has a character the emoji fallback would draw: emoji, or a symbol/dingbat. */
+export function hasPictographs(text) {
+  return /\p{Extended_Pictographic}|[\u2600-\u27BF]/u.test(String(text ?? ''));
+}
+
+/**
+ * `text` as the canvas should draw it. An emoji typed from a keyboard usually carries
+ * U+FE0F, the selector that asks for colour "emoji presentation" — and for that the
+ * browser passes over a monochrome font it was given and reaches for the OS's colour
+ * one. Swapped for U+FE0E, the text-presentation selector, so the fallback draws it as
+ * line art. The stored text is untouched; only the drawing sees this.
+ */
+export function drawableText(text) {
+  return String(text ?? '').replace(/\uFE0F/g, '\uFE0E');
+}
+
+/**
+ * The CSS family stack `family` draws with: the font, then the emoji fallback, then
+ * monospace behind a web font. For the canvas (PixelText) and the inline editor's
+ * textarea alike. A bitmap font is drawn from its glyph table, so its stack is only
+ * for the textarea, which has no such font to use.
+ */
 export function cssFamily(family) {
   const id = familyId(family);
   if (BITMAP_BY_ID.has(id)) return 'monospace';
-  return /^(monospace|sans-serif|serif)$/.test(id) ? id : `"${id.replace(/"/g, '')}", monospace`;
+  const quoted = (f) => (/^(monospace|sans-serif|serif)$/.test(f) ? f : `"${f.replace(/"/g, '')}"`);
+  const stack = /^(monospace|sans-serif|serif)$/.test(id) ? [id, EMOJI_FONT] : [id, EMOJI_FONT, 'monospace'];
+  return stack.map(quoted).join(', ');
 }
 
 /**
@@ -123,6 +155,8 @@ export function fontAdvice(family, fontSize) {
  * is drawn here; the others borrow the nearest ASCII glyph.
  */
 const SUBSTITUTES = { '—': '-', '–': '-', '−': '-', '…': '.', ' ': ' ' };
+/** Characters that draw nothing and take no space: presentation selectors and the joiner. */
+const ZERO_WIDTH = /[\uFE0E\uFE0F\u200D]/;
 const EXTRA_GLYPHS = new Map([
   [TOM_THUMB, { '°': [4, 0, 0, 3, 0b010, 0b101, 0b010] }],
   [GFX_5X7, { '°': [6, 0, 0, 4, 0b0110, 0b1001, 0b1001, 0b0110] }],
@@ -139,7 +173,10 @@ function glyphOf(font, ch) {
 /** Width of `text` in `font` at `scale`, in px, including each character's trailing gap. */
 export function pixelTextWidth(font, text, letterSpacing = 0, scale = 1) {
   let w = 0;
-  for (const ch of String(text)) w += glyphOf(font, ch)[0] * scale + letterSpacing;
+  for (const ch of String(text)) {
+    if (ZERO_WIDTH.test(ch)) continue;
+    w += glyphOf(font, ch)[0] * scale + letterSpacing;
+  }
   return w;
 }
 
@@ -151,6 +188,7 @@ export function pixelTextWidth(font, text, letterSpacing = 0, scale = 1) {
 export function pixelTextRuns(font, text, fn, letterSpacing = 0, scale = 1) {
   let cx = 0;
   for (const ch of String(text)) {
+    if (ZERO_WIDTH.test(ch)) continue;
     const [adv, xo, top, w, ...rows] = glyphOf(font, ch);
     rows.forEach((row, y) => {
       let x = 0;

@@ -85,6 +85,12 @@ the bitmap fonts existed carries only the three generic names and loads unchange
 chart with no `axisFontFamily` draws in `gfx-5x7`, the default for a new chart.
 `fontUrl` / `axisFontUrl` is absent except on a web font.
 
+Behind every browser font sits Noto Emoji (`EMOJI_FONT` in `pixelfont.js`), loaded from
+Google Fonts the first time a text holds an emoji or symbol, so those draw as monochrome
+line art. The text is drawn with U+FE0F (emoji presentation) swapped for U+FE0E, or the
+browser would pass over that font for the OS's colour emoji; the saved `text` keeps what
+was typed.
+
 ### The `datetime` element
 
 The toolbox's **Date & time** prop. A text block showing Adafruit IO's time

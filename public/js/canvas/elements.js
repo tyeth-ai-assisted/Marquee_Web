@@ -23,7 +23,7 @@ import { fitRect, FEED_IMAGE_FITS } from '../core/feedimage.js';
 import { IMAGE_DITHERS } from './imagedither.js';
 import { PixelText } from './pixeltext.js';
 import { textMetrics, captionFamily, cssFamily } from './pixelfont.js';
-import { whenWebFont } from './webfont.js';
+import { whenWebFont, onEmojiFont } from './webfont.js';
 
 let counter = 0;
 export const nextId = () => 'el' + (++counter);
@@ -1577,6 +1577,9 @@ export function editLabel(node) {
  * Called once from boot. Cheap when nothing uses an icon: no icon, no rebuild.
  */
 export function initIconFont() {
+  // The emoji fallback (pixelfont.js EMOJI_FONT) arrives whenever a text first needs it;
+  // each text lays itself out again, and the dither preview is re-taken here.
+  onEmojiFont(() => { layer.batchDraw(); scheduleDitherRefresh(); });
   onFaReady(() => {
     const withIcons = layer.find('.element')
       .filter((n) => n.getAttr('etype') === 'gauge' && n.getAttr('showIcon'));

@@ -6,7 +6,8 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   PIXEL_TEXT_BELOW, PIXEL_FONTS, FONT_OPTIONS, familyId, pixelFontFor, pixelScale, captionFamily,
-  fontLabel, cssFamily, fontAdvice, pixelTextWidth, pixelTextRuns, textMetrics,
+  fontLabel, cssFamily, fontAdvice, pixelTextWidth, pixelTextRuns, textMetrics, EMOJI_FONT, hasPictographs,
+  drawableText,
 } from '../public/js/canvas/pixelfont.js';
 import {
   webFontName, cssFontFamilies, resolveFontSource, isFontFileUrl,
@@ -45,8 +46,27 @@ test('the menu names each font with the size it is useful at', () => {
   assert.equal(fontLabel('gfx-5x7'), 'Adafruit 5×7');
   assert.equal(fontLabel('Press Start 2P'), 'Press Start 2P', 'a web font is named by its family');
   assert.equal(cssFamily('tom-thumb'), 'monospace', 'the inline editor has no bitmap font to use');
-  assert.equal(cssFamily('serif'), 'serif');
-  assert.equal(cssFamily('Press Start 2P'), '"Press Start 2P", monospace');
+});
+
+test('every browser font draws with the monochrome emoji font behind it', () => {
+  assert.equal(EMOJI_FONT, 'Noto Emoji');
+  assert.equal(cssFamily('serif'), 'serif, "Noto Emoji"');
+  assert.equal(cssFamily('monospace'), 'monospace, "Noto Emoji"');
+  assert.equal(cssFamily('Press Start 2P'), '"Press Start 2P", "Noto Emoji", monospace');
+  assert.equal(cssFamily('"Font Awesome 6 Free"'), '"Font Awesome 6 Free", "Noto Emoji", monospace');
+  assert.equal(hasPictographs('Good Boy'), false);
+  assert.equal(hasPictographs('Good Boy ✅‼️⚠️👀'), true);
+  assert.equal(hasPictographs('21 °C'), false, 'a degree sign is not an emoji');
+  for (const ch of ['✓', '✔', '⚠', '★', '☂', '⚡', '☀']) assert.equal(hasPictographs(ch), true, ch);
+});
+
+test('emoji are drawn in text presentation, so the mono fallback is not passed over', () => {
+  assert.equal(drawableText('⚠\uFE0F ‼\uFE0F ok'), '⚠\uFE0E ‼\uFE0E ok');
+  assert.equal(drawableText('plain'), 'plain');
+  assert.equal(drawableText(null), '');
+  // In a bitmap font a selector or joiner draws nothing and takes no room.
+  assert.equal(pixelTextWidth(tomThumb, '!\uFE0F!'), pixelTextWidth(tomThumb, '!!'));
+  assert.deepEqual(ascii(tomThumb, '!\uFE0E'), ascii(tomThumb, '!'));
 });
 
 test('a bitmap font scales in whole steps of its line, like setTextSize, never below 1', () => {
