@@ -18,11 +18,13 @@ await mkdir(output, { recursive: true });
 await cp(resolve(root, 'public'), output, { recursive: true });
 await rm(resolve(output, 'CNAME'), { force: true });
 await writeFile(resolve(output, '.nojekyll'), '');
-await writeFile(resolve(output, 'js/core/deployment.js'),
-  `// Public deployment settings; no credentials.\nexport const albumWorkerUrl = ${JSON.stringify(worker)};\n`);
+// ALBUM_WORKER_URL overrides the importer default committed in public/js/core/deployment.js.
+if (worker)
+  await writeFile(resolve(output, 'js/core/deployment.js'),
+    `// Public deployment settings; no credentials.\nexport const albumWorkerUrl = ${JSON.stringify(worker)};\n`);
 const sha = execFileSync('git', ['rev-parse', 'HEAD'], { cwd: root, encoding: 'utf8' }).trim();
 await writeFile(resolve(output, 'build.json'), JSON.stringify({
   sha, repository: process.env.GITHUB_REPOSITORY || 'tyeth-ai-assisted/Marquee_Web',
-  builtAt: new Date().toISOString(), albumImporterConfigured: !!worker,
+  builtAt: new Date().toISOString(), albumImporterConfigured: true,
 }, null, 2) + '\n');
 console.log(`Prepared GitHub Pages files for ${sha.slice(0, 12)} (${worker ? 'with' : 'without'} an album importer default).`);
