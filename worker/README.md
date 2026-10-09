@@ -41,6 +41,6 @@ See [GitHub's Copilot API documentation](https://docs.github.com/en/copilot/how-
 
 ## Linked-card follow-up
 
-The follow-up adds `npm run test:previews:live` for the exact X, Bluesky and two Mastodon URLs in `test/fixtures/linked-card-sources.json`, with bagder before freediverx. These tests download the actual preview images and verify title/creator metadata; logos and avatars do not satisfy the tests. X/Bluesky use public Open Graph metadata. Mastodon attachment and link-card previews use its public status API, including `card.image` when the page omits `og:image`. No API key or signed-in session is used.
+The follow-up adds `npm run test:previews:live` for the exact X, Bluesky and two Mastodon URLs in `test/fixtures/linked-card-sources.json`, with bagder before freediverx. These tests download the actual preview images and verify title/creator metadata; logos and avatars do not satisfy the tests. X/Bluesky use public Open Graph metadata. Mastodon attachment and link-card previews use its public status API, including `card.image` when the page omits `og:image`. No API key or signed-in session is used. The same four URLs also resolve through `npm start` (see Run locally), so pasting them into the album builder shows the post image locally.
 
 Preview canaries run in the same nightly GitHub workflow and use its existing Copilot repair path. See the [linked-card proposal](../docs/proposals/linked-cards.md) for the remaining card editor and JSON-field mapping work.
