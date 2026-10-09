@@ -7,6 +7,7 @@ import {
   googleAlbum,
   discoverRecords,
   manifest,
+  MAX_IMAGE_EDGE,
 } from "./discovery.js";
 const MAX_HTML = 2 * 1024 * 1024,
   MAX_IMAGE = 12 * 1024 * 1024;
@@ -218,7 +219,7 @@ function imageResponse(type) {
 export async function downloadImage(payload, env = {}, fetcher = fetch) {
   let url = payload.url;
   if (payload.provider === "google-photos")
-    url = url.split("=")[0] + "=w1600-h1600";
+    url = url.split("=")[0] + `=w${MAX_IMAGE_EDGE}-h${MAX_IMAGE_EDGE}`;
   const ref = reference(url);
   let response;
   if (!ref.selected) response = (await remote(ref.url, env, fetcher)).response;
@@ -231,7 +232,7 @@ export async function downloadImage(payload, env = {}, fetcher = fetch) {
     if (!item) throw new Error("Selected picture was not found.");
     const imageURL =
       item.provider === "google-photos"
-        ? item.url.split("=")[0] + "=w1600-h1600"
+        ? item.url.split("=")[0] + `=w${MAX_IMAGE_EDGE}-h${MAX_IMAGE_EDGE}`
         : item.url;
     response = (await remote(imageURL, env, fetcher)).response;
   }

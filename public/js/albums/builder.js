@@ -58,7 +58,7 @@ function render() {
     )
     .join("");
   $("albumCount").textContent =
-    `${draft.filter((x) => x.selected !== false).length} selected of ${draft.length} · ${Math.ceil(draft.reduce((n, x) => n + (x.src?.length || 0), 0) / 1024)} / 300 KB embedded`;
+    `${draft.filter((x) => x.selected !== false).length} selected of ${draft.length} · ${Math.ceil(draft.reduce((n, x) => n + (x.src?.length || 0), 0) / 1024)} / 300 KB embedded (uploads only; URL pictures store just their link)`;
 }
 function activity(on) {
   busy = on;
@@ -171,30 +171,36 @@ async function save() {
   try {
     configure();
     const items = [];
+    let first = null;
     for (const entry of draft.filter((x) => x.selected !== false)) {
-      status(`Preparing picture ${items.length + 1}…`);
+      status(`Checking picture ${items.length + 1}…`);
       let item = { ...entry };
       try {
-        if (!item.src) {
-          if (!item.importUrl) {
-            const result = await discoverAlbum(item.url, controller.signal);
-            const u = new URL(item.url);
-            const m = /^#marquee-photo=(\d+)(?:&id=(.*))?$/.exec(u.hash);
-            const c = m?.[2]
-              ? result.items.find((x) => x.id === decodeURIComponent(m[2]))
-              : result.items[m ? +m[1] - 1 : 0];
-            if (!c) throw new Error("No image preview found for this item.");
-            item = {
-              ...item,
-              ...(await importCandidate(c, controller.signal)),
-              title: item.title || c.title,
-              credit: item.credit || c.credit || new URL(item.url).hostname,
-            };
-          } else
-            item = {
-              ...item,
-              ...(await importCandidate(item, controller.signal)),
-            };
+        // URL-backed pictures are stored as URLs only: the frame fetches each one
+        // through the importer when it is shown, so canvas state stays small and
+        // the 300 KB embedding budget applies to uploads alone. Pasted URLs that
+        // were never discovered are resolved now so bad links fail here, not later.
+        if (!item.src && !item.importUrl) {
+          const result = await discoverAlbum(item.url, controller.signal);
+          const u = new URL(item.url);
+          const m = /^#marquee-photo=(\d+)(?:&id=(.*))?$/.exec(u.hash);
+          const c = m?.[2]
+            ? result.items.find((x) => x.id === decodeURIComponent(m[2]))
+            : result.items[m ? +m[1] - 1 : 0];
+          if (!c) throw new Error("No image preview found for this item.");
+          item = {
+            ...item,
+            importUrl: c.importUrl,
+            title: item.title || c.title,
+            credit: item.credit || c.credit || new URL(item.url).hostname,
+          };
+        }
+        if (!first) {
+          // Only the first picture is downloaded now, for the frame's initial view.
+          status("Preparing the first picture…");
+          first = item.src
+            ? { src: item.src }
+            : await importCandidate(item, controller.signal);
         }
       } catch (e) {
         entry.error = e.message;
@@ -204,11 +210,11 @@ async function save() {
         );
       }
       if (turn !== seq) return;
-      items.push(item);
+      items.push(item.url ? { ...item, src: null } : item);
     }
     if (!items.length) throw new Error("Select at least one picture.");
     const normalized = normalizeAlbum(items);
-    const img = await decodeImage(normalized[0].src);
+    const img = await decodeImage(first.src);
     if (!img) throw new Error("First image could not be decoded.");
     if (turn !== seq) return;
     if (target && (!target.getLayer() || feedImageGen(target) !== targetGen))
@@ -225,7 +231,7 @@ async function save() {
         shownAt: Date.now(),
       });
     }
-    applyFeedImage(node, img, normalized[0].src);
+    applyFeedImage(node, img, first.src);
     select(node);
     closeModal("albumModal");
     toast("Photo album saved");

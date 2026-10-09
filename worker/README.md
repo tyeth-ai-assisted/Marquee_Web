@@ -11,7 +11,7 @@ The repository root `wrangler.toml` defines one Worker, `adafruit-marquee-web`, 
 3. Optionally set `FLICKR_API_KEY` as a Worker secret to enable Flickr album and photostream API access. Public photostreams also work without a key through the page adapter.
 4. Deploy with `npx wrangler deploy`, or connect the repository to Workers Builds with the default `npx wrangler deploy` command so pushes to the chosen branch deploy automatically. The Worker URL then serves the whole app.
 
-A separately hosted copy of the app (for example GitHub Pages) can still use a deployed Worker: enter its origin in the album builder's Importer connection section and list that page's origin in `APP_ORIGIN` if you want to restrict callers. No credentials are bundled in public files. Local uploaded albums work without a Worker.
+A separately hosted copy of the app (for example GitHub Pages) uses the Worker named in `public/js/core/deployment.js` by default; users can enter another origin in the album builder's Importer connection section and list that page's origin in `APP_ORIGIN` if you want to restrict callers. No credentials are bundled in public files. Local uploaded albums work without a Worker.
 
 ## Run locally
 
@@ -29,7 +29,7 @@ Direct image URLs can expire. Album references use `#marquee-photo=N` with a one
 
 Flickr `flic.kr/ps/...` short links resolve through the same guarded redirect handling as other URLs. Public `/photos/USER/` photostreams can be imported without an API key by parsing the page's JSON model data; scripts never execute. Photos retain stable IDs, titles, owner credit and provider order. The importer selects available non-square renditions up to 1600 pixels and excludes profile pictures and unrelated recommendations. Larger or partially loaded photostreams are labelled partial. Configured API access supports both `flickr.people.getPublicPhotos` and Flickr albums.
 
-Albums embed prepared images with a total 300 KB budget to leave space within IO canvas-state's history-off value ceiling. Large collections should be hosted rather than repeatedly embedded; reference-only asset storage and background rendering are future work. Animated uploads become still pictures. Crop and pre-dither to the panel palette before upload for best results. Attribution is displayed by default.
+URL-backed pictures are stored as links only, whichever export format is chosen, and the frame fetches each one through the importer when it is shown; providers are asked for the smallest rendition that covers the largest panel (800 pixels, never above 1,200) to keep Worker memory and time low. Only uploaded photos are embedded, within a total 300 KB budget that leaves space under IO canvas-state's history-off value ceiling. Background rendering is future work. Animated uploads become still pictures. Crop and pre-dither to the panel palette before upload for best results. Attribution is displayed by default.
 
 ## Tests and nightly repair
 

@@ -1,5 +1,5 @@
 /** Public photostream page data; parse JSON only, never run Flickr scripts. */
-import { MAX_ITEMS, publicURL } from "./discovery.js";
+import { MIN_IMAGE_EDGE, MAX_ITEMS, publicURL } from "./discovery.js";
 
 export function flickrSource(value) {
   const u = publicURL(value);
@@ -97,14 +97,12 @@ function rendition(photo, unwrap, source) {
   }
   const rendered = candidates.filter((s) => !s.original);
   const choices = rendered.length ? rendered : candidates;
-  const bounded = choices.filter((s) => Math.max(s.width, s.height) <= 1600);
-  const chosen = bounded.length
-    ? bounded.sort(
-        (a, b) => Math.max(b.width, b.height) - Math.max(a.width, a.height),
-      )[0]
-    : choices.sort(
-        (a, b) => Math.max(a.width, a.height) - Math.max(b.width, b.height),
-      )[0];
+  // Smallest rendition that still covers the largest panel; otherwise the biggest.
+  const edge = (s) => Math.max(s.width, s.height);
+  const enough = choices.filter((s) => edge(s) >= MIN_IMAGE_EDGE);
+  const chosen = (enough.length ? enough : choices).sort((a, b) =>
+    enough.length ? edge(a) - edge(b) : edge(b) - edge(a),
+  )[0];
   if (!chosen) return null;
   const { original, ...image } = chosen;
   return image;
