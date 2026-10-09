@@ -1,0 +1,167 @@
+/* ============================================================================
+   Marquee — design tokens.
+
+   THIS FILE IS THE SWAP LAYER. Every color, font and metric the interface uses
+   is declared here and nowhere else; the rest of the CSS refers to these
+   variables only.
+
+   The values come from the Adafruit design system (@adafruit/design-system),
+   whose compiled tokens are vendored in css/vendor/ada/tokens.css and loaded
+   before this file. Marquee's roles below are aliases onto the --ada-* tokens,
+   picked by role rather than by look: the accent is Adafruit's action blue, the
+   type is Proxima Nova, controls take the 4px control radius and cards the 6px
+   one, and focus is the system's purple ring. To follow an upstream change,
+   rebuild the design system (`npm run build` in a clone of it) and copy its
+   dist/tokens.css over the vendored one; nothing in this file should need to move.
+
+   Four groups, in order of how likely they are to change:
+     1. FONTS        — Proxima Nova off the Adafruit CDN, the icon face.
+     2. BRAND        — the accent + neutrals, aliased onto --ada-* tokens.
+     3. ROLES        — semantic aliases. What the rest of the CSS actually uses.
+     4. PANEL        — e-paper literals. These are physical, not brand: they
+                       describe what an e-ink panel looks like and should NOT be
+                       re-pointed at brand colors.
+   ========================================================================== */
+
+/* ---- 1. FONTS ------------------------------------------------------------- */
+
+/* Proxima Nova, from the same CDN the Shop, Learn and IO pages load it from (it
+   answers cross-origin requests with Access-Control-Allow-Origin: *). Three faces,
+   because that is all Adafruit ships: 300, 400, and a 500 that is the semibold
+   file. There is no 700 — the design system caps UI text at 500 and so does this
+   interface. --ada-font-family-sans falls back to Montserrat, then system faces. */
+@font-face {
+  font-family: "Proxima Nova";
+  font-weight: 300;
+  font-display: swap;
+  src: url("https://cdn-shop.adafruit.com/fonts/proximanova/proximanova-light-webfont.woff2") format("woff2");
+}
+@font-face {
+  font-family: "Proxima Nova";
+  font-weight: 400;
+  font-display: swap;
+  src: url("https://cdn-shop.adafruit.com/fonts/proximanova/proximanova-regular-webfont.woff2") format("woff2");
+}
+@font-face {
+  font-family: "Proxima Nova";
+  font-weight: 500;
+  font-display: swap;
+  src: url("https://cdn-shop.adafruit.com/fonts/proximanova/proximanova-semibold-webfont.woff2") format("woff2");
+}
+
+/* Font Awesome 6 Free (Solid), vendored rather than pulled from a CDN — see the
+   note in js/icons.js. `swap` is deliberately NOT used: a fallback glyph baked
+   into a BMP and sent to a panel is a wrong render, so it is better for the icon
+   to be briefly absent than briefly wrong. */
+@font-face {
+  font-family: 'Font Awesome 6 Free';
+  font-style: normal;
+  font-weight: 900;
+  font-display: block;
+  src: url('../fonts/fa-solid-900.woff2') format('woff2');
+}
+
+:root {
+  /* ---- 2. BRAND ---------------------------------------------------------- */
+
+  /* The accent is the action blue — #0062c7, the one color all three Adafruit
+     sites share. js/canvas/stage.js reads --color-accent and --color-accent-700
+     through getComputedStyle for the Konva selection handles, so both names stay. */
+  --color-accent: var(--ada-color-action);
+  --color-accent-hover: var(--ada-color-action-hover);
+  --color-accent-700: var(--ada-color-brand-strong);
+  --color-accent-subtle: var(--ada-color-brand-subtle);   /* pale blue tint */
+  /* A lighter wash of the subtle tint, for hover grounds and plates where the
+     full #d0effb would shout. */
+  --color-accent-wash: color-mix(in srgb, var(--ada-color-brand-subtle) 45%, var(--ada-color-background));
+
+  --color-bg: var(--ada-color-background);             /* white */
+  --color-surface: var(--ada-color-surface-muted);     /* #f0f0f0 */
+  --color-text: var(--ada-color-text);                 /* IO body: #000 */
+  --color-heading: var(--ada-color-text-heading);      /* #333 */
+
+  --font-heading: var(--ada-font-family-base);
+  /* Adafruit's headings are LIGHT, not bold: Learn sets h1–h3 at 300 and IO's page
+     titles at 400. Emphasis inside UI text is the 500 face. */
+  --font-heading-weight: var(--ada-font-weight-body);
+  --font-strong-weight: var(--ada-font-weight-heading);
+  --font-body: var(--ada-font-family-base);
+  /* Editor readouts (dimensions, byte counts, pin names, JSON) want tabular
+     figures and a fixed advance. Proxima is neither. */
+  --font-mono: var(--ada-font-family-mono);
+  --tracking-body: var(--ada-tracking-body);
+  --tracking-label: var(--ada-tracking-wide);
+
+  /* ---- 3. ROLES ---------------------------------------------------------- */
+
+  --color-divider: var(--ada-color-border);             /* #ddd hairlines */
+  --color-control-border: var(--ada-color-border-strong); /* #767676, 3:1+ on white */
+  --color-muted: var(--ada-color-text-muted);
+  --color-link: var(--ada-color-link);
+  --color-link-hover: var(--ada-color-link-hover);
+  --color-focus: var(--ada-color-focus-ring);
+  --color-rail: var(--ada-color-background);            /* side rails, toolbox, inspector */
+  --color-band: var(--ada-color-background);            /* the action bar — white, so it parts from the canvas ground */
+  --color-canvas-ground: var(--ada-color-surface-muted);
+  --color-canvas-dot: var(--ada-color-gray-20);
+  --color-chrome: var(--ada-color-surface-inverse-strong); /* the black IO header row */
+  --chrome-h: 50px;                                     /* the app bar's height, in one place */
+  --color-chrome-text: var(--ada-color-text-inverse);
+  --color-chrome-hairline: color-mix(in srgb, var(--ada-color-text-inverse) 35%, transparent);
+  --color-chrome-hover: color-mix(in srgb, var(--ada-color-text-inverse) 14%, transparent);
+  --color-inverse: var(--ada-color-surface-inverse);    /* #333: toast */
+  --color-on-inverse: var(--ada-color-text-on-inverse);
+
+  /* Body-size text in the accent. The action blue passes on white at 5.9:1, so
+     unlike the old steel accent it does not have to step down a ramp. */
+  --color-accent-text: var(--ada-color-link);
+  --color-on-accent: var(--ada-color-on-brand);
+
+  /* Status. Live and offline indicators use the success and danger roles. */
+  --color-lamp-on: var(--ada-color-success);
+  --color-lamp-off: var(--ada-color-fill-neutral);
+  --color-check-pass: var(--ada-color-success);
+  --color-check-wait: var(--ada-color-gray-20);
+  /* The warning orange fails contrast as text on white (2.26:1), so it is a FILL:
+     dots, rules and tints. Warning TEXT is heading-colored beside one of those. */
+  --color-warn: var(--ada-color-warning);
+  --color-warn-wash: color-mix(in srgb, var(--ada-color-warning) 12%, var(--ada-color-background));
+  --color-danger: var(--ada-color-danger);
+  --color-lamp-fault: var(--ada-color-danger);
+
+  --space-1: var(--ada-space-1);   /*  4px */
+  --space-2: var(--ada-space-2);   /*  8px */
+  --space-3: var(--ada-space-3);   /* 12px */
+  --space-4: var(--ada-space-4);   /* 16px */
+  --space-6: var(--ada-space-5);   /* 24px */
+  --space-8: var(--ada-space-6);   /* 32px */
+
+  /* Two radii, as the system has: controls 4px, cards and plates 6px. Overlays
+     (dialogs, alerts) take the 14px overlay radius. The device shell around a panel
+     preview stands in for physical plastic and keeps its own — see --radius-shell. */
+  --radius: var(--ada-radius-control);
+  --radius-card: var(--ada-radius-card);
+  --radius-overlay: var(--ada-radius-overlay);
+  --radius-pill: var(--ada-radius-pill);
+  --radius-shell: 12px;
+
+  /* Slide-overs and modals; things that open OVER the page from a control in it
+     (a popover); and the recessed-glass inset on a panel preview. The first is the
+     dialog's own shadow, the second the dropdown panel's. */
+  --shadow-lg: 0 5px 15px var(--ada-color-shadow);
+  --shadow-md: 2px 2px 4px 1px var(--ada-color-shadow);
+  --shadow-glass: inset 0 1px 4px rgba(0, 0, 0, 0.15);
+
+  --color-scrim: var(--ada-color-overlay);
+  /* A dialog that belongs to the page rather than the window dims the shelf and
+     leaves the app bar lit. Same overlay. */
+  --color-scrim-below-chrome: var(--ada-color-overlay);
+
+  /* ---- 4. PANEL (physical, do not re-point at brand colors) -------------- */
+
+  --panel-paper: #f0efea;      /* e-paper white — warmer than the UI ground */
+  --panel-bezel: #8f8f8a;      /* hairline around the glass */
+  --panel-ink: #1a1a1a;        /* ink drawn on the panel */
+  --panel-shell: #131313;      /* the device body around the glass */
+  --panel-thumb: #e6e5e0;      /* panel ground in small card thumbnails */
+}

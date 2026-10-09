@@ -1,0 +1,305 @@
+/**
+ * Do not edit directly, this file was auto-generated.
+ */
+
+:root {
+  --ada-color-gray-15: #dddddd; /** $gray-md-light */
+  --ada-color-gray-20: #cccccc; /** $pre-border-color */
+  --ada-color-gray-55: #767676; /** $gray */
+  --ada-color-gray-65: #595959; /** $gray-dark-md (lighten $gray-dark 15%) */
+  --ada-color-gray-80: #333333; /** $gray-dark / $als-title-color */
+  --ada-color-gray-100: #000000; /** $text-color */
+  --ada-color-gray-00: #ffffff; /** $body-bg — page background */
+  --ada-color-gray-05: #f0f0f0; /** $gray-light */
+  --ada-color-blue-10: #d0effb; /** $brand-primary-light */
+  --ada-color-blue-60: #0062c7; /** $brand-primary — the cross-site action blue */
+  --ada-color-blue-75: #003c7a; /** $brand-primary-dark = color.adjust($brand-primary, -15%); 8-bit floor of rgb(0%,23.66%,48.04%) */
+  --ada-color-green-75: #027d1b; /** $als-green-color */
+  --ada-color-red-60: #d80015; /** $als-alert-red */
+  --ada-color-purple-40: #af52de; /** $brand-light-purple */
+  --ada-color-purple-60: #63338f; /** $brand-purple */
+  --ada-color-pink-50: #ff00c7; /** $brand-pink — brand accent (NOT debug; used in nav/alerts/buttons) */
+  --ada-color-pink-60: #c203a1; /** $als-pink-color */
+  --ada-color-orange-45: #f89521; /** $als-yellow-color (orange) */
+  --ada-color-yellow-45: #ffc700; /** $playground-yellow */
+  --ada-color-yellow-50: #ffcc00; /** $als-alt-yellow */
+  --ada-color-yellow-05: #ffffe4; /** $als-notification-yellow */
+  --ada-color-rose-55: #c7254e; /** $code-color */
+  --ada-color-rose-05: #f9f2f4; /** $code-bg */
+  --ada-color-dark-surface: #15181c; /** dark --surface — page background */
+  --ada-color-dark-surface-raised: #21252b; /** dark --surface-raised — headers, panels */
+  --ada-color-dark-surface-sunken: #1c2025; /** dark --surface-sunken */
+  --ada-color-dark-surface-inverse: #3a3e44; /** dark --surface-inverse */
+  --ada-color-dark-on-inverse: #f2f3f5; /** dark --text-on-inverse */
+  --ada-color-dark-text: #e4e6e9; /** dark --text — body */
+  --ada-color-dark-text-heading: #f0f1f3; /** dark --text-heading */
+  --ada-color-dark-text-muted: #a3a9b0; /** dark --text-muted */
+  --ada-color-dark-border: #333940; /** dark --border — hairline */
+  --ada-color-dark-border-strong: #4a515a; /** dark --border-strong — control borders */
+  --ada-color-dark-link: #85b8ef; /** dark --link — lightened blue for AA on dark surfaces */
+  --ada-color-dark-link-hover: #aacdf4; /** dark --link-hover */
+  --ada-color-dark-brand-strong: #1270cd; /** dark --brand-strong */
+  --ada-color-dark-brand-subtle: #11314a; /** dark --brand-subtle — tinted brand background */
+  --ada-color-dark-success: #43c364; /** dark --success — lightened green */
+  --ada-color-dark-danger: #ff6b76; /** dark --danger — lightened red */
+  --ada-color-dark-warning: #ffab4a; /** dark --warning — lightened orange */
+  --ada-color-dark-code-text: #ff8ba7; /** dark --code-text (Learn) */
+  --ada-color-dark-code-background: #2c2327; /** dark --code-bg (Learn) */
+  --ada-color-shadow: rgba(0, 0, 0, 0.15); /** Elevation shadow color (deepens in dark) */
+  --ada-color-overlay: rgba(0, 0, 0, 0.5); /** Modal/scrim overlay (deepens in dark) */
+  --ada-font-family-sans: 'Proxima Nova', Montserrat, 'Lucida Grande', 'Lucida Sans Unicode', 'Lucida Sans', Geneva, Verdana, sans-serif; /** $font-family-sans-serif */
+  --ada-font-family-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; /** [INFERRED] Learn declares NO mono webfont — code renders in the OS default. This is a sane system stack standing in until a deliberate mono face is chosen ([UNKNOWN] which). */
+  --ada-font-weight-thin: 300; /** $font-weight-thin — Proxima Light (only real light face) */
+  --ada-font-weight-normal: 400; /** $font-weight-normal */
+  --ada-font-weight-bold: 500; /** $font-weight-bold — redefined to 500; NO real 700 face is deployed */
+  --ada-font-weight-bold-heavy: 700; /** [NEW] marketing headline weight. REQUIRES deploying the Proxima Nova Bold (700) webfont — NOT currently loaded on Learn. Until then it renders as synthetic bold. */
+  --ada-font-weight-black: 800; /** [NEW] extra-punch display weight — needs Proxima Nova Extrabold/Black. Optional. */
+  --ada-size-15: 15px; /** measured literal: Learn/Shop header search, Shop product copy */
+  --ada-size-20: 20px; /** measured literal: header search icon */
+  --ada-size-24: 24px; /** measured literal: cart icon, IO page title */
+  --ada-size-32: 32px; /** measured literal: footer quote, alert icon, IO footer links */
+  --ada-size-56: 56px; /** measured literal: Shop gallery arrow glyph */
+  --ada-size-xs: 12px; /** $font-size-xs */
+  --ada-size-small: 14px; /** $font-size-small (also the compact/Shop body) */
+  --ada-size-medium: 16px; /** $font-size-medium */
+  --ada-size-base: 18px; /** $font-size-base (comfortable/Learn body) */
+  --ada-size-med-large: 22px; /** $font-size-med-large */
+  --ada-size-large2: 30px; /** $font-size-large2 */
+  --ada-size-large: 36px; /** $font-size-large */
+  --ada-size-xl: 64px; /** $font-size-xl */
+  --ada-size-display-sm: 48px; /** [NEW] section headline */
+  --ada-size-display-md: 72px; /** [NEW] hero headline */
+  --ada-size-display-lg: 96px; /** [NEW] oversized hero */
+  --ada-radius-5: 5px; /** measured literal: header search, search refinements, sub-header link */
+  --ada-radius-8: 8px; /** measured literal: Shop gallery thumbnail ring */
+  --ada-radius-base: 4px; /** $border-radius-base */
+  --ada-radius-large: 6px; /** $border-radius-large */
+  --ada-radius-overlay: 14px; /** measured: alert.scss + dropdowns .floating-dropdown — large overlay radius */
+  --ada-radius-xl: 20px; /** [NEW] large cards / media */
+  --ada-radius-pill: 999px; /** [NEW] pills / fully-round buttons */
+  --ada-control-min-height: 40px; /** measured: elements/button.scss .btn min-height */
+  --ada-control-gap: 8px; /** measured: elements/button.scss .btn icon gap */
+  --ada-control-border-width: 2px; /** measured: mixins.scss button() border */
+  --ada-control-min-height-lg: 52px; /** [NEW] large hero CTA */
+  --ada-space-1: 4px; /** [NEW] spacing scale — step 1 */
+  --ada-space-2: 8px;
+  --ada-space-3: 12px;
+  --ada-space-4: 16px;
+  --ada-space-5: 24px;
+  --ada-space-6: 32px;
+  --ada-space-7: 48px;
+  --ada-space-8: 64px;
+  --ada-space-9: 96px; /** [NEW] section padding */
+  --ada-space-10: 128px; /** [NEW] largest section gap */
+  --ada-space-element-padding: 10px; /** $element-padding */
+  --ada-space-element-margin: 40px; /** $element-margin */
+  --ada-space-headline-margin: 40px; /** $headline-margin */
+  --ada-breakpoint-xs: 480px; /** $screen-xs */
+  --ada-breakpoint-sm: 768px; /** $screen-sm */
+  --ada-breakpoint-md: 1024px; /** $screen-md */
+  --ada-breakpoint-lg: 1366px; /** $screen-lg */
+  --ada-z-popover: 1010; /** $zindex-popover */
+  --ada-tracking-body: 0.02em; /** measured: Learn body letter-spacing (.02em); the Shop and IO match */
+  --ada-tracking-tight: -0.02em; /** [NEW] display letter-spacing */
+  --ada-tracking-wide: 0.08em; /** [NEW] eyebrow / label letter-spacing */
+  --ada-alert-border-width: 8px; /** measured: alert.scss */
+  --ada-badge-font-size: 10px; /** measured: dropdowns.scss .badge (small) */
+  --ada-badge-padding: 2px; /** measured: dropdowns.scss .badge */
+  --ada-tabs-indicator-width: 4px; /** measured: user.scss .tab.selected */
+  --ada-pagination-item-gap: 5px; /** measured: base.scss li margin */
+  --ada-pagination-item-padding: 6px; /** measured: base.scss li a padding */
+  --ada-table-cell-padding-block: 14px; /** [NEW] roomier vertical cell padding — modern table */
+  --ada-table-cell-padding-inline: 16px; /** [NEW] horizontal cell padding */
+  --ada-table-cell-min-height: 30px; /** measured: elements/table.scss */
+  --ada-table-radius: 10px; /** outer corner radius */
+  --ada-dropdown-panel-border-width: 4px; /** measured: dropdowns.scss */
+  --ada-accordion-border-width: 2px; /** measured: elements/faq.scss */
+  --ada-accordion-padding: 20px; /** measured: faq.scss */
+  --ada-reaction-border-width: 2px;
+  --ada-toggle-border-width: 2px;
+  --ada-image-max-height: 800px; /** measured: image.scss */
+  --ada-avatar-size-sm: 50px; /** measured: sub_headers.scss */
+  --ada-avatar-size-lg: 100px; /** measured: user.scss */
+  --ada-footer-social-size: 32px; /** social icons — footer.scss */
+  --ada-leading-tight: 1.05; /** [NEW] display line-height */
+  --ada-leading-snug: 1.2; /** [NEW] heading line-height */
+  --ada-leading-normal: 1.5; /** [NEW] body line-height */
+  --ada-shadow-sm: 0 1px 2px rgba(16,22,33,.06), 0 2px 8px rgba(16,22,33,.06); /** [NEW] subtle elevation. In Figma this becomes an EFFECT STYLE, not a variable (Figma has no shadow variable type). */
+  --ada-shadow-md: 0 4px 12px rgba(16,22,33,.10), 0 2px 4px rgba(16,22,33,.06); /** [NEW] raised card / sticky nav */
+  --ada-shadow-lg: 0 12px 32px rgba(16,22,33,.16), 0 4px 8px rgba(16,22,33,.08); /** [NEW] hero media / modal */
+  --ada-container-max: 1200px; /** [NEW] max content width */
+  --ada-container-measure: 680px; /** [NEW] readable text column (~65ch) */
+  --ada-color-action: var(--ada-color-blue-60); /** Primary interactive color — links, primary buttons */
+  --ada-color-action-hover: var(--ada-color-blue-75); /** Hover/active state for action */
+  --ada-color-action-subtle: var(--ada-color-blue-10); /** Tinted action background */
+  --ada-color-text: var(--ada-color-gray-100); /** Default body text ($text-color #000) */
+  --ada-color-text-muted: var(--ada-color-gray-55); /** Secondary text */
+  --ada-color-text-heading: var(--ada-color-gray-80); /** Headings/titles ($als-title-color #333) */
+  --ada-color-background: var(--ada-color-gray-00); /** Page background */
+  --ada-color-surface-muted: var(--ada-color-gray-05); /** Subtle raised surface */
+  --ada-color-border: var(--ada-color-gray-15); /** Default hairline border */
+  --ada-color-border-strong: var(--ada-color-gray-55); /** Control borders (WCAG 1.4.11 target — see notes) */
+  --ada-color-success: var(--ada-color-green-75); /** $als-green-color */
+  --ada-color-danger: var(--ada-color-red-60); /** $als-alert-red */
+  --ada-color-warning: var(--ada-color-orange-45); /** $als-yellow-color */
+  --ada-color-accent-pink: var(--ada-color-pink-50); /** $brand-pink accent */
+  --ada-color-code-text: var(--ada-color-rose-55); /** Inline code text */
+  --ada-color-code-background: var(--ada-color-rose-05); /** Inline code background */
+  --ada-color-surface: var(--ada-color-gray-00); /** Page/base surface (= background; Learn --surface) */
+  --ada-color-surface-raised: var(--ada-color-gray-05); /** Raised surface — table headers, panels ($gray-light) */
+  --ada-color-surface-inverse: var(--ada-color-gray-80); /** Inverse surface — tooltips, inverted bars ($gray-dark) */
+  --ada-color-text-on-inverse: var(--ada-color-gray-00); /** Text/icons on an inverse surface */
+  --ada-color-link: var(--ada-color-blue-60); /** Text links — = action in light, lightens in dark */
+  --ada-color-link-hover: var(--ada-color-blue-75); /** Hover/active for link */
+  --ada-color-brand: var(--ada-color-blue-60); /** Brand fill (primary buttons) — constant across themes */
+  --ada-color-brand-strong: var(--ada-color-blue-75); /** Stronger brand — hover/active fills */
+  --ada-color-brand-subtle: var(--ada-color-blue-10); /** Tinted brand background */
+  --ada-color-on-brand: var(--ada-color-gray-00); /** Text/icons on a brand fill */
+  --ada-color-focus-ring: var(--ada-color-purple-60); /** Focus outline ($brand-purple) */
+  --ada-color-fill-success: var(--ada-color-green-75); /** Solid status fill — stays saturated in dark so on-inverse text keeps contrast */
+  --ada-color-fill-danger: var(--ada-color-red-60); /** Solid status fill */
+  --ada-color-fill-warning: var(--ada-color-orange-45); /** Solid status fill */
+  --ada-color-fill-purple: var(--ada-color-purple-60); /** Solid status fill */
+  --ada-color-fill-neutral: var(--ada-color-gray-55); /** Solid neutral fill */
+  --ada-color-surface-brand: var(--ada-color-blue-10); /** [NEW] light brand-tinted section band */
+  --ada-color-surface-inverse-strong: var(--ada-color-gray-100); /** [NEW] deeper full-black inverse section band (marketing/landing). Distinct from the semantic color.surface-inverse (#333, tooltips/inverted bars) — 'strong' = pure black, matches the footer. Pairs with text-inverse / border-inverse. */
+  --ada-color-text-inverse: var(--ada-color-gray-00); /** [NEW] text on the inverse band */
+  --ada-color-border-inverse: var(--ada-color-gray-80); /** [NEW] hairline on the inverse band */
+  --ada-font-family-base: var(--ada-font-family-sans);
+  --ada-font-weight-body: var(--ada-font-weight-normal);
+  --ada-font-weight-heading: var(--ada-font-weight-bold); /** Currently 500 — no real 700 face deployed */
+  --ada-font-weight-display: var(--ada-font-weight-bold-heavy); /** [NEW] semantic role: the headline weight for landing display type */
+  --ada-radius-control: var(--ada-radius-base); /** Buttons, fields */
+  --ada-radius-card: var(--ada-radius-large); /** Cards, panels */
+  --ada-text-body: var(--ada-size-base); /** Comfortable density (Learn/AIO) */
+  --ada-text-body-compact: var(--ada-size-small); /** Compact density (Shop) — tier-2 override */
+  --ada-text-heading-1: var(--ada-size-large);
+  --ada-text-heading-2: var(--ada-size-large2);
+  --ada-text-heading-3: var(--ada-size-med-large);
+  --ada-text-display-sm: var(--ada-size-display-sm); /** [NEW] role: section headline size */
+  --ada-text-display-md: var(--ada-size-display-md); /** [NEW] role: hero headline size */
+  --ada-text-display-lg: var(--ada-size-display-lg); /** [NEW] role: oversized hero size */
+  --ada-button-min-height: var(--ada-control-min-height);
+  --ada-button-gap: var(--ada-control-gap);
+  --ada-button-border-width: var(--ada-control-border-width);
+  --ada-button-primary-background-hover: var(--ada-color-blue-75); /** #003c7a in both themes, darker than the fill like Learn (Learn mixes --brand 85% with black, #0053a9 [DRIFT]) */
+  --ada-button-primary-text: var(--ada-color-gray-00);
+  --ada-field-min-height: var(--ada-control-min-height); /** 40px input — form.scss */
+  --ada-card-padding: var(--ada-space-element-padding); /** 10px — content_cards.scss */
+  --ada-alert-radius: var(--ada-radius-overlay); /** 14px — alert.scss */
+  --ada-badge-selected-text: var(--ada-color-gray-00);
+  --ada-badge-success-text: var(--ada-color-gray-00);
+  --ada-badge-danger-text: var(--ada-color-gray-00);
+  --ada-pagination-count-font-size: var(--ada-size-small); /** guide-count 14px */
+  --ada-table-header-font-size: var(--ada-size-xs); /** [NEW] 12px small-caps header */
+  --ada-table-header-font-weight: var(--ada-font-weight-bold); /** [NEW] 500 — no 700 face on Learn */
+  --ada-dropdown-panel-radius: var(--ada-radius-overlay); /** 14px — dropdowns.scss */
+  --ada-dropdown-panel-padding: var(--ada-space-element-padding); /** 10px */
+  --ada-breadcrumb-separator-size: var(--ada-size-xs); /** 12px — toolbars.scss */
+  --ada-code-font-family: var(--ada-font-family-mono);
+  --ada-code-inline-radius: var(--ada-radius-base);
+  --ada-code-block-radius: var(--ada-radius-overlay); /** 14px top corners — code.scss */
+  --ada-code-block-padding: var(--ada-space-element-padding); /** 10px */
+  --ada-code-download-text: var(--ada-color-gray-00);
+  --ada-accordion-radius: var(--ada-radius-overlay); /** 14px — faq.scss */
+  --ada-product-description-font-size: var(--ada-size-small); /** 14px */
+  --ada-product-price-font-weight: var(--ada-font-weight-bold);
+  --ada-reaction-font-size: var(--ada-size-small); /** 14px — reactions.scss .reaction */
+  --ada-toggle-active-text: var(--ada-color-gray-00); /** [INFERRED] selected label on the fill */
+  --ada-image-radius: var(--ada-radius-base); /** 4px — elements/image.scss */
+  --ada-image-caption-radius: var(--ada-radius-base);
+  --ada-avatar-radius: var(--ada-radius-base); /** [INFERRED] Learn sets no radius on user images; matching image radius */
+  --ada-footer-background: var(--ada-color-gray-100); /** black — footer.scss */
+  --ada-footer-text: var(--ada-color-gray-00);
+  --ada-footer-link: var(--ada-color-gray-00);
+  --ada-footer-font-weight: var(--ada-font-weight-bold); /** 500 */
+  --ada-button-font-size: var(--ada-text-heading-3); /** med-large 22px — from .btn */
+  --ada-button-radius: var(--ada-radius-control);
+  --ada-button-primary-background: var(--ada-color-brand); /** Learn .btn-primary fills with var(--brand), constant across themes */
+  --ada-button-primary-border: var(--ada-color-brand);
+  --ada-button-secondary-background: var(--ada-color-background);
+  --ada-button-secondary-text: var(--ada-color-action);
+  --ada-button-secondary-border: var(--ada-color-action);
+  --ada-field-background: var(--ada-color-background);
+  --ada-field-text: var(--ada-color-text);
+  --ada-field-border: var(--ada-color-border-strong); /** 1px solid $gray — form.scss */
+  --ada-field-border-focus: var(--ada-color-action);
+  --ada-field-radius: var(--ada-radius-control);
+  --ada-field-font-size: var(--ada-text-body); /** 18px — form.scss */
+  --ada-card-background: var(--ada-color-background);
+  --ada-card-border: var(--ada-color-border);
+  --ada-card-radius: var(--ada-radius-card); /** proposed 6px; Learn content_cards drift to 4px/20px */
+  --ada-alert-background: var(--ada-color-background); /** white — alert.scss */
+  --ada-alert-text: var(--ada-color-text-heading);
+  --ada-alert-danger-border: var(--ada-color-danger);
+  --ada-alert-danger-icon: var(--ada-color-danger);
+  --ada-alert-success-border: var(--ada-color-success);
+  --ada-alert-success-icon: var(--ada-color-success);
+  --ada-alert-warning-border: var(--ada-color-warning);
+  --ada-alert-warning-icon: var(--ada-color-warning);
+  --ada-alert-info-border: var(--ada-color-action);
+  --ada-alert-info-icon: var(--ada-color-action);
+  --ada-badge-radius: var(--ada-radius-control);
+  --ada-badge-default-background: var(--ada-color-surface-muted);
+  --ada-badge-default-text: var(--ada-color-text);
+  --ada-badge-selected-background: var(--ada-color-brand); /** Learn .badge.selected: var(--brand) */
+  --ada-badge-success-background: var(--ada-color-success);
+  --ada-badge-danger-background: var(--ada-color-danger);
+  --ada-tabs-border: var(--ada-color-border); /** container bottom rule — user.scss .content-types */
+  --ada-tabs-font-size: var(--ada-text-body);
+  --ada-tabs-text: var(--ada-color-text-muted); /** unselected tab [INFERRED] */
+  --ada-tabs-text-selected: var(--ada-color-text-heading);
+  --ada-tabs-indicator: var(--ada-color-action); /** selected underline */
+  --ada-pagination-text: var(--ada-color-action); /** page links inherit the global link color [INFERRED] */
+  --ada-pagination-active-text: var(--ada-color-text-heading); /** measured: base.scss li.active */
+  --ada-table-text: var(--ada-color-text);
+  --ada-table-cell-border: var(--ada-color-border); /** hairline row separator */
+  --ada-table-row-hover-background: var(--ada-color-surface-muted); /** [NEW] row hover highlight */
+  --ada-table-header-background: var(--ada-color-surface-muted); /** muted header fill */
+  --ada-table-header-text: var(--ada-color-text-heading); /** heading-colored uppercase label */
+  --ada-dropdown-trigger-text: var(--ada-color-action);
+  --ada-dropdown-trigger-text-hover: var(--ada-color-action-hover);
+  --ada-dropdown-panel-background: var(--ada-color-background); /** white — dropdowns.scss */
+  --ada-dropdown-panel-text: var(--ada-color-text-heading); /** $gray-dark #333 */
+  --ada-dropdown-panel-border: var(--ada-color-action); /** 4px action border — .floating-dropdown */
+  --ada-breadcrumb-font-size: var(--ada-text-body); /** 18px — toolbars.scss */
+  --ada-breadcrumb-link: var(--ada-color-action); /** inherits global link color [INFERRED] */
+  --ada-breadcrumb-current: var(--ada-color-text-heading); /** current crumb: Learn renders it in the body color (#333) [MEASURED] */
+  --ada-breadcrumb-separator: var(--ada-color-text-muted); /** $gray — toolbars.scss .separator */
+  --ada-code-inline-text: var(--ada-color-code-text); /** $code-color #c7254e */
+  --ada-code-inline-background: var(--ada-color-code-background); /** $code-bg #f9f2f4 */
+  --ada-code-block-background: var(--ada-color-surface-muted); /** $gray-light — elements/code.scss .download-code */
+  --ada-code-block-text: var(--ada-color-text);
+  --ada-code-download-background: var(--ada-color-brand); /** .download-button — code.scss; Learn fills it with var(--brand) */
+  --ada-accordion-background: var(--ada-color-background);
+  --ada-accordion-text: var(--ada-color-text);
+  --ada-accordion-default-border: var(--ada-color-border-strong);
+  --ada-accordion-default-icon: var(--ada-color-border-strong);
+  --ada-accordion-info-border: var(--ada-color-action);
+  --ada-accordion-info-icon: var(--ada-color-action);
+  --ada-accordion-success-border: var(--ada-color-success);
+  --ada-accordion-success-icon: var(--ada-color-success);
+  --ada-accordion-warning-border: var(--ada-color-warning);
+  --ada-accordion-warning-icon: var(--ada-color-warning);
+  --ada-accordion-danger-border: var(--ada-color-danger);
+  --ada-accordion-danger-icon: var(--ada-color-danger);
+  --ada-accordion-accent-pink-border: var(--ada-color-accent-pink);
+  --ada-accordion-accent-pink-icon: var(--ada-color-accent-pink);
+  --ada-product-title-font-size: var(--ada-text-heading-3); /** 22px — product-title */
+  --ada-product-price-font-size: var(--ada-text-body); /** 18px */
+  --ada-product-meta-text: var(--ada-color-text-muted); /** quantity badge $gray */
+  --ada-product-divider: var(--ada-color-border); /** row separator $gray-md-light */
+  --ada-reaction-background: var(--ada-color-text-muted); /** $gray fill */
+  --ada-reaction-text: var(--ada-color-surface); /** Learn .reaction color: var(--surface) */
+  --ada-reaction-border: var(--ada-color-text-muted);
+  --ada-reaction-radius: var(--ada-radius-control);
+  --ada-toggle-border: var(--ada-color-border-strong); /** 2px $gray — toggle-switch.scss */
+  --ada-toggle-background: var(--ada-color-background);
+  --ada-toggle-text: var(--ada-color-action); /** inactive label */
+  --ada-toggle-active-background: var(--ada-color-brand); /** :after pill fill; Learn :checked uses var(--brand) */
+  --ada-toggle-draft: var(--ada-color-danger);
+  --ada-toggle-moderation: var(--ada-color-warning);
+  --ada-toggle-published: var(--ada-color-success);
+  --ada-image-caption-background: var(--ada-color-surface-inverse); /** Learn .image-caption: var(--surface-inverse), #333 in light */
+  --ada-image-caption-text: var(--ada-color-text-on-inverse); /** Learn .image-caption: var(--text-on-inverse) */
+}

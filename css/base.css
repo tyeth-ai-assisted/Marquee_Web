@@ -1,0 +1,535 @@
+/* ============================================================================
+   Marquee — base layer.
+
+   The primitives — type, buttons, fields, segmented controls, badges, cards,
+   dialogs — built on the tokens in tokens.css. No literal colors here; everything
+   routes through a var() so tokens.css stays the single swap point.
+
+   Each primitive follows the Adafruit design system's component of the same kind
+   (design-system/docs/components/<name>.md): the button's 2px border in its own
+   fill, the 4px control radius, the purple focus ring, sentence-case labels at
+   500 at most. What differs is SIZE. The system's controls are sized for Learn's
+   18px reading pages (42px buttons, 44px fields); Marquee is an editor with 200px
+   and 260px rails, so it keeps the Shop's 14px compact body and scales the
+   controls to match. Where Marquee needs something the system has no component
+   for (a ghost or danger button, a status pill, a toast), it is drawn from the
+   nearest system component and marked as Marquee's own.
+   ========================================================================== */
+
+*, *::before, *::after { box-sizing: border-box; }
+
+html, body { height: 100%; }
+
+body {
+  margin: 0;
+  font-family: var(--font-body);
+  font-size: var(--ada-text-body-compact);   /* 14px, the Shop's compact body */
+  font-weight: var(--ada-font-weight-body);
+  line-height: 1.5;
+  letter-spacing: var(--tracking-body);
+  color: var(--color-text);
+  background: var(--color-bg);
+  overflow: hidden;              /* the app owns its own scroll regions */
+}
+
+/* Headings follow IO and Learn: light, sentence case, heading-colored. IO's page
+   title is 24px/400 — the size every screen heading here takes (h3). */
+h1, h2, h3, h4, h5, h6 {
+  font-family: var(--font-heading);
+  font-weight: var(--font-heading-weight);
+  line-height: 1.2;
+  letter-spacing: normal;
+  color: var(--color-heading);
+  margin: 0;
+}
+h1 { font-size: var(--ada-text-heading-1); font-weight: var(--ada-font-weight-thin); }
+h2 { font-size: var(--ada-text-heading-2); font-weight: var(--ada-font-weight-thin); }
+h3 { font-size: var(--ada-size-24); }
+h4 { font-size: var(--ada-text-heading-3); }
+
+p { margin: 0; }
+strong, b { font-weight: var(--font-strong-weight); }
+/* Learn's links: link blue, no underline, darker on hover. Running prose underlines
+   (.prose a, below) so a link in a sentence is findable without color. */
+a { color: var(--color-link); text-decoration: none; text-underline-offset: 0.1em; }
+a:hover { color: var(--color-link-hover); text-decoration: underline; }
+img { display: block; max-width: 100%; }
+
+/* Focus is always visible (design system, Accessibility): the purple ring, 2px out. */
+:focus { outline: none; }
+:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; }
+::selection { background: var(--color-accent-subtle); }
+
+.mono { font-family: var(--font-mono); font-variant-numeric: tabular-nums; letter-spacing: 0; }
+.text-muted { color: var(--color-muted); }
+.hidden { display: none !important; }
+.spacer { flex: 1; }
+
+/* The UA rule for [hidden] is only `display: none`, so any component that sets
+   its own display wins and the attribute silently does nothing — which is how
+   an "ASLEEP" pill ends up on screen during Act I. Make the attribute mean what
+   it says. */
+[hidden] { display: none !important; }
+
+/* — the recurring type patterns — */
+
+/* Section label: sits above a group of controls in a rail. Uppercase at the
+   system's label tracking (--ada-tracking-wide), 500, muted. */
+.label {
+  font-size: var(--ada-size-xs);
+  font-weight: var(--font-strong-weight);
+  letter-spacing: var(--tracking-label);
+  text-transform: uppercase;
+  color: var(--color-muted);
+}
+
+/* A field caption is a form label, not a section label: Learn's .form-group label
+   is sentence case at 500, in the heading color. Same class in the markup, so the
+   inspector's JS templates (canvas/selection.js) did not have to change. */
+.field > .label,
+.prop-row > .label,
+.flash-bar > .label,
+.fw-row > .label {
+  font-size: var(--ada-size-xs);
+  letter-spacing: normal;
+  text-transform: none;
+  color: var(--color-heading);
+}
+
+/* Eyebrow: sits above a heading or a block of rail copy and names it. */
+.eyebrow {
+  font-size: var(--ada-size-xs);
+  font-weight: var(--font-strong-weight);
+  letter-spacing: var(--tracking-label);
+  text-transform: uppercase;
+  color: var(--color-accent-text);
+}
+
+/* Rail prose: the explanatory paragraphs in the right-hand column of the setup
+   screens. Inline links underline, as the system's inline link does. */
+.prose { font-size: 13px; line-height: 1.55; color: var(--color-heading); text-wrap: pretty; }
+.prose a, .hint a { text-decoration: underline; }
+
+/* — status pill (Marquee's own) —
+   ON AIR / ASLEEP / OFFLINE, and the setup-run badge. The system's badge is a 10px
+   label for dropdowns; this is a state lamp, so it keeps a dot and the label
+   tracking, on the badge's radius. */
+.pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-family: var(--font-body);
+  font-weight: var(--font-strong-weight);
+  font-size: 11px;
+  letter-spacing: var(--tracking-label);
+  text-transform: uppercase;
+  line-height: 1.2;
+  padding: 4px 9px;
+  border-radius: var(--radius);
+  white-space: nowrap;
+}
+.pill .dot { width: 7px; height: 7px; border-radius: 50%; flex: none; }
+/* The path badge is a real button — it routes back to the fork. */
+button.pill { cursor: pointer; color: inherit; }
+.chrome button.pill:hover { background: var(--color-chrome-hover); }
+/* On air is the only filled pill; its green lamp and offline's red one are the only
+   saturated dots anywhere. Offline is not dimmed like asleep — it is the one state
+   that wants noticing. In setup has no lamp: the board is not reporting anything yet. */
+.pill-on-air { background: var(--color-chrome); color: var(--color-chrome-text); }
+.pill-on-air .dot { background: var(--color-lamp-on); }
+.pill-asleep { border: 1px solid var(--color-divider); color: var(--color-muted); }
+.pill-asleep .dot { background: var(--color-lamp-off); }
+.pill-offline { border: 1px solid color-mix(in srgb, var(--color-lamp-fault) 55%, transparent); color: var(--color-danger); }
+.pill-offline .dot { background: var(--color-lamp-fault); }
+.pill-setup { border: 1px solid var(--color-accent); color: var(--color-accent-text); }
+/* On the dark chrome bar both variants become outlines — a filled dark pill on a
+   dark bar would disappear. */
+.chrome .pill { border: 1px solid var(--color-chrome-hairline); background: none; color: inherit; }
+.chrome .pill-asleep { opacity: 0.8; }
+.chrome .pill-asleep .dot { background: var(--ada-color-fill-neutral); }
+.chrome .pill-offline { color: inherit; }
+
+/* — card —
+   The system's card (docs/components/card.md): white, 1px border, the 6px card
+   radius. Plates, tiles and the canvas.json panel all sit on it. */
+.card {
+  position: relative;
+  background: var(--ada-card-background);
+  border: 1px solid var(--ada-card-border);
+  border-radius: var(--ada-card-radius);
+}
+
+/* — notice —
+   The system's info alert (docs/components/alert.md) at editor scale: the same
+   action-blue border and icon on white, a quarter of the border and half the
+   padding, because the 110px original is sized for a Learn page. */
+.notice {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 12px 16px;
+  background: var(--ada-alert-background);
+  color: var(--ada-alert-text);
+  border: 2px solid var(--ada-alert-info-border);
+  border-radius: var(--radius-card);
+}
+.notice > .notice-icon {
+  flex: none;
+  font-size: var(--ada-size-base);
+  line-height: 1.2;
+  color: var(--ada-alert-info-icon);
+}
+.notice > .notice-body { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+
+/* — elevation — */
+/* The one lift that is not a modal: something opened from a control, floating just
+   off the page it belongs to. The dropdown panel's shadow. */
+
+.elev-md { box-shadow: var(--shadow-md); }
+
+/* — rules — */
+
+.hr { height: 1px; border: 0; margin: 0; background: var(--color-divider); flex: none; }
+hr { height: 1px; border: 0; margin: var(--space-3) 0; background: var(--color-divider); }
+
+/* — buttons —
+   The system's button (docs/components/button.md): a 2px border in the fill
+   color, 4px radius, 500 weight, sentence case, hover darkens. Sized as the Shop's
+   compact button (14px) rather than the 22px guide button.
+
+   A bare .btn is Marquee's NEUTRAL button — the toolbox props, the zoom steps, the
+   bench tools. The system has no neutral variant (every Adafruit button is blue),
+   and a toolbox of twelve blue outlines reads as twelve calls to action, so a bare
+   .btn is the field's 1px outline in the heading color, and turns action blue under
+   the pointer. */
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 32px;
+  cursor: pointer;
+  text-decoration: none;
+  font-family: var(--font-body);
+  font-weight: var(--font-strong-weight);
+  font-size: var(--ada-size-small);
+  line-height: 1.2;
+  letter-spacing: normal;
+  color: var(--color-heading);
+  background: var(--color-bg);
+  border: 1px solid var(--color-control-border);
+  border-radius: var(--radius);
+  padding: 6px 13px;
+  user-select: none;
+  transition: background-color 0.2s ease, border-color 0.2s ease, color 0.2s ease;
+}
+@media (prefers-reduced-motion: reduce) { .btn { transition: none; } }
+.btn:hover:not(:disabled) { color: var(--color-accent-text); border-color: var(--color-accent); text-decoration: none; }
+.btn:active:not(:disabled) { background: var(--color-accent-wash); }
+.btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+/* Primary — the system's: solid brand fill, white label, fill darkens on hover. */
+.btn-primary {
+  color: var(--ada-button-primary-text);
+  background: var(--ada-button-primary-background);
+  border: var(--ada-button-border-width) solid var(--ada-button-primary-border);
+}
+.btn-primary:hover:not(:disabled),
+.btn-primary:active:not(:disabled) {
+  color: var(--ada-button-primary-text);
+  background: var(--ada-button-primary-background-hover);
+  border-color: var(--ada-button-primary-background-hover);
+}
+
+/* Secondary — the system's: white with an action-blue outline and label; hover
+   fills it brand blue. */
+.btn-secondary {
+  color: var(--ada-button-secondary-text);
+  background: var(--ada-button-secondary-background);
+  border: var(--ada-button-border-width) solid var(--ada-button-secondary-border);
+}
+.btn-secondary:hover:not(:disabled),
+.btn-secondary:active:not(:disabled) {
+  color: var(--color-on-accent);
+  background: var(--ada-color-brand);
+  border-color: var(--ada-color-brand);
+}
+
+/* Ghost (Marquee's own) — a link-weight action: no outline until the pointer is on it. */
+.btn-ghost { border-color: transparent; background: transparent; color: var(--color-accent-text); }
+.btn-ghost:hover:not(:disabled) { background: var(--color-accent-wash); border-color: transparent; color: var(--color-link-hover); }
+
+/* Danger (Marquee's own) — the secondary button's shape in the danger red. */
+.btn-danger { color: var(--color-danger); border: var(--ada-button-border-width) solid var(--color-danger); background: var(--color-bg); }
+.btn-danger:hover:not(:disabled),
+.btn-danger:active:not(:disabled) { color: var(--color-on-accent); background: var(--color-danger); border-color: var(--color-danger); }
+
+.btn-block { width: 100%; }
+.btn-sm { min-height: 26px; padding: 3px 9px; font-size: var(--ada-size-xs); }
+
+/* — fields —
+   The system's field (docs/components/field.md): 1px border-strong, 4px radius,
+   action-blue border and the purple ring on focus, danger border when invalid. At
+   13px/32px for the rails rather than 18px/44px. */
+
+.field { display: flex; flex-direction: column; gap: 5px; min-width: 0; }
+
+.input,
+input[type="text"], input[type="password"], input[type="number"], select, textarea {
+  width: 100%;
+  min-width: 0;
+  min-height: 32px;
+  padding: 6px 9px;
+  font-family: var(--font-body);
+  font-size: 13px;
+  font-weight: var(--ada-font-weight-body);
+  letter-spacing: normal;
+  color: var(--ada-field-text);
+  caret-color: var(--color-accent);
+  background: var(--ada-field-background);
+  border: 1px solid var(--ada-field-border);
+  border-radius: var(--ada-field-radius);
+}
+select { font-family: var(--font-body); cursor: pointer; }
+textarea { min-height: 64px; resize: vertical; line-height: 1.4; }
+::placeholder { color: var(--color-muted); opacity: 1; }
+.input:hover,
+input:hover:not(:disabled), select:hover:not(:disabled), textarea:hover { border-color: var(--color-heading); }
+.input:focus-visible,
+input:focus-visible, select:focus-visible, textarea:focus-visible { border-color: var(--ada-field-border-focus); }
+input:disabled, select:disabled {
+  color: var(--color-muted);
+  background: var(--ada-color-surface-raised);
+  border-color: var(--color-divider);
+  cursor: not-allowed;
+}
+input[type="range"] { min-height: 0; padding: 0; border: 0; background: none; accent-color: var(--color-accent); }
+/* Native checkboxes in the brand blue. The system's tokenized checkbox is still a
+   Draft proposal; the native control with the accent color is what every Adafruit
+   site ships today. */
+input[type="checkbox"] { width: 15px; height: 15px; min-height: 0; margin: 0; padding: 0; accent-color: var(--ada-color-brand); }
+
+.check-row { display: flex; align-items: center; gap: 8px; font-size: 13px; cursor: pointer; }
+.check-row input[type="checkbox"] { flex: none; }
+
+/* — segmented control —
+   The system's toggle switch (docs/components/toggle.md): a 2px border-strong
+   frame, action-blue labels, the checked option filled brand blue with a white
+   label, the whole control ringed on keyboard focus. */
+
+.seg {
+  display: inline-flex;
+  overflow: hidden;
+  border: var(--ada-toggle-border-width) solid var(--ada-toggle-border);
+  border-radius: var(--radius);
+}
+/* Same control in a 260px rail. The options keep their full names — abbreviating
+   "Floyd–Steinberg" to "F–S" would make the most consequential render setting
+   unreadable to the beginner this screen is for. */
+.seg-tight { display: flex; width: 100%; }
+.seg-tight .seg-opt { padding: 6px 4px; font-size: 11.5px; letter-spacing: normal; }
+.seg-opt {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 1;
+  gap: 6px;
+  padding: 5px 12px;
+  font-size: 13px;
+  color: var(--ada-toggle-text);
+  background: var(--ada-toggle-background);
+  cursor: pointer;
+  white-space: nowrap;
+}
+.seg-opt + .seg-opt { border-left: 1px solid var(--color-divider); }
+.seg-opt input { position: absolute; opacity: 0; width: 0; height: 0; pointer-events: none; }
+.seg-opt:has(input:checked) { background: var(--ada-toggle-active-background); color: var(--ada-toggle-active-text); }
+.seg-opt:not(:has(input:checked)):hover { background: var(--color-accent-wash); }
+.seg:has(input:focus-visible) { overflow: visible; outline: 2px solid var(--color-focus); outline-offset: 2px; }
+
+/* — tags —
+   The system's badge (docs/components/badge.md) at a readable 12px rather than the
+   10px dropdown label: 4px radius, tinted. */
+
+.tag {
+  display: inline-flex;
+  align-items: center;
+  font-size: var(--ada-size-xs);
+  font-weight: var(--ada-font-weight-body);
+  line-height: 1.4;
+  padding: 1px 7px;
+  border-radius: var(--ada-badge-radius);
+  white-space: nowrap;
+}
+.tag-accent { background: var(--color-accent-subtle); color: var(--ada-color-brand-strong); }
+.tag-neutral { background: var(--ada-badge-default-background); color: var(--ada-badge-default-text); }
+/* The system's chip: link text in a 1px link border. */
+.tag-outline { border: 1px solid var(--color-link); color: var(--color-link); background: var(--color-bg); }
+
+/* — status dots (device checks) — */
+
+.check { display: flex; align-items: center; gap: 10px; font-size: 13px; }
+.check .dot { width: 8px; height: 8px; border-radius: 50%; flex: none; background: var(--color-check-wait); }
+.check[data-state="pass"] .dot { background: var(--color-check-pass); }
+.check[data-state="warn"] .dot { background: var(--color-warn); }
+.check[data-state="fail"] .dot { background: var(--color-danger); }
+.check[data-state="wait"] { color: var(--color-muted); }
+.check[data-state="fail"] { color: var(--color-danger); }
+
+/* — inline field error — */
+/* The first per-field error message in the app. Everything else reports through
+   the toast, which is right for an action and wrong for a credential: a toast is
+   gone in 3.2s and does not say WHICH field IO rejected. */
+
+.field-error { font-size: 12px; line-height: 1.5; color: var(--color-danger); margin: -4px 0 0; }
+input[aria-invalid="true"] { border-color: var(--color-danger); }
+
+/* — a masked field with a reveal — */
+
+.key-field { display: flex; align-items: stretch; gap: 0; min-width: 0; }
+.key-field input { flex: 1; border-top-right-radius: 0; border-bottom-right-radius: 0; }
+.reveal-toggle {
+  flex: none;
+  margin-left: -1px;
+  padding: 0 11px;
+  font-family: var(--font-body);
+  font-weight: var(--font-strong-weight);
+  font-size: var(--ada-size-xs);
+  color: var(--color-accent-text);
+  background: var(--color-bg);
+  border: 1px solid var(--ada-field-border);
+  border-radius: 0 var(--radius) var(--radius) 0;
+  cursor: pointer;
+}
+.reveal-toggle:hover { background: var(--color-accent-wash); }
+.reveal-toggle[aria-pressed="true"] { color: var(--color-on-accent); background: var(--ada-color-brand); border-color: var(--ada-color-brand); }
+
+/* — dialogs —
+   The system's dialog (docs/components/dialog.md): no border, the 14px overlay
+   radius, a soft shadow over a 50% black overlay, and a header row ruled off from
+   the body with a 22px regular title. The markup is Marquee's own — a div, shown
+   and hidden by core/util.js — so the header's rule is drawn by bleeding it to the
+   dialog's edges rather than by a separate body wrapper. */
+
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: grid;
+  place-items: center;
+  padding: var(--space-6);
+  background: var(--color-scrim);
+}
+.modal {
+  --modal-pad: 20px;
+  width: min(94vw, 620px);
+  max-height: 88vh;
+  overflow: auto;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: 0 var(--modal-pad) var(--modal-pad);
+  background: var(--ada-color-surface);
+  border: 0;
+  border-radius: var(--radius-overlay);
+  box-shadow: var(--shadow-lg);
+}
+.modal-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 0 calc(-1 * var(--modal-pad)) 4px;
+  padding: 16px var(--modal-pad);
+  border-bottom: 1px solid var(--color-divider);
+  /* Pinned while the body scrolls — Settings runs well past the viewport, and the
+     close button is in this row. */
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: var(--ada-color-surface);
+}
+.modal-head h4 { font-size: var(--ada-text-heading-3); font-weight: var(--ada-font-weight-body); }
+.modal-close {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 32px;
+  height: 32px;
+  border: 0;
+  border-radius: var(--radius);
+  background: none;
+  cursor: pointer;
+  font-size: var(--ada-size-medium);
+  line-height: 1;
+  padding: 0;
+  color: var(--color-muted);
+}
+.modal-close:hover { color: var(--color-heading); background: var(--color-surface); }
+.modal-actions { display: flex; align-items: center; justify-content: flex-end; gap: 8px; margin-top: 4px; }
+
+/* A dialog that belongs to the page under the app bar rather than to the window.
+   .chrome is in normal flow with no z-index, so starting the scrim below it is all
+   it takes to leave the bar lit — no stacking context anywhere. */
+.modal-backdrop.under-chrome {
+  top: var(--chrome-h);
+  background: var(--color-scrim-below-chrome);
+}
+
+/* The credentials dialog. Narrower than the editor's modals. */
+.modal-gate { width: min(94vw, 520px); }
+.modal-gate .modal-head { align-items: flex-start; }
+.modal-gate .modal-head .head-lines { display: flex; flex-direction: column; gap: 4px; }
+
+/* — the connected Adafruit IO account, read-only — */
+/* One block, three homes: A5b, the Settings modal, and whatever asks next. The
+   key is a fixed run of bullets, not a render of the real one — its LENGTH is
+   worth nothing to the reader and something to a shoulder. */
+
+.account-plate {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 12px 14px;
+  max-width: 520px;
+}
+.account-plate .account-lines { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.account-plate .account-user {
+  font-family: var(--font-heading);
+  font-weight: var(--font-strong-weight);
+  font-size: var(--ada-size-base);
+  line-height: 1.25;
+  color: var(--color-heading);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.account-plate .account-key { font-size: 12px; color: var(--color-muted); }
+.account-plate > .btn { flex: none; }
+
+/* — toast (Marquee's own) —
+   The system's flash message is a full-width bar at the top of a page; an editor
+   needs something that floats and goes away, so this keeps the flash's solid fill
+   and 10px/15px geometry on the inverse surface, rounded like a control. */
+
+#toast {
+  position: fixed;
+  left: 50%;
+  bottom: 40px;
+  z-index: 80;
+  transform: translateX(-50%) translateY(8px);
+  max-width: min(80vw, 640px);
+  padding: 9px 16px;
+  font-size: 13px;
+  color: var(--color-on-inverse);
+  background: var(--color-inverse);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-lg);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.2s, transform 0.2s;
+}
+#toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+@media (prefers-reduced-motion: reduce) { #toast { transition: none; } }
