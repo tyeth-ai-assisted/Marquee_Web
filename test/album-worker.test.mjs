@@ -50,3 +50,37 @@ test("real Worker HTMLRewriter discovers previews, picture sources, lazy HTML an
     await mf.dispose();
   }
 });
+test("APP_ORIGIN accepts a comma-separated origin list and echoes the caller", async () => {
+  const mf = new Miniflare({
+    modules: true,
+    scriptPath: "test/helpers/album-worker.mjs",
+    modulesRules: [{ type: "ESModule", include: ["**/*.js", "**/*.mjs"] }],
+    compatibilityDate: "2026-07-30",
+    bindings: {
+      IMPORT_SECRET: secret,
+      APP_ORIGIN: "https://app.example, http://localhost:3000/",
+    },
+  });
+  try {
+    for (const origin of ["https://app.example", "http://localhost:3000"]) {
+      const r = await mf.dispatchFetch("http://localhost/api/albums/discover", {
+        method: "OPTIONS",
+        headers: { Origin: origin },
+      });
+      assert.equal(r.status, 200);
+      assert.equal(r.headers.get("access-control-allow-origin"), origin);
+    }
+    const denied = await mf.dispatchFetch("http://localhost/api/albums/image", {
+      headers: { Origin: "https://evil.example" },
+    });
+    assert.equal(denied.status, 403);
+    assert.equal(
+      denied.headers.get("access-control-allow-origin"),
+      "https://app.example",
+    );
+    const noOrigin = await mf.dispatchFetch("http://localhost/api/albums/nope");
+    assert.equal(noOrigin.status, 404);
+  } finally {
+    await mf.dispose();
+  }
+});

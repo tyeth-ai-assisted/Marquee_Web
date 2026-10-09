@@ -296,19 +296,24 @@ export async function verify(token, secret, now = Date.now()) {
 }
 export default {
   async fetch(request, env) {
+    // APP_ORIGIN lists the browser origins allowed to call this Worker, comma
+    // separated; empty allows any origin. The matching origin is echoed back.
+    const origins = (env.APP_ORIGIN || "")
+      .split(",")
+      .map((o) => o.trim().replace(/\/$/, ""))
+      .filter(Boolean);
+    const origin = request.headers.get("Origin");
     const headers = {
       "Access-Control-Allow-Origin":
-        env.APP_ORIGIN || new URL(request.url).origin,
+        origin && (!origins.length || origins.includes(origin))
+          ? origin
+          : origins[0] || new URL(request.url).origin,
       Vary: "Origin",
       "Cache-Control": "private, no-store",
     };
     const json = (data, status = 200) =>
       Response.json(data, { status, headers });
-    if (
-      request.headers.get("Origin") &&
-      env.APP_ORIGIN &&
-      request.headers.get("Origin") !== env.APP_ORIGIN
-    )
+    if (origin && origins.length && !origins.includes(origin))
       return json({ error: "This origin is not enabled." }, 403);
     if (request.method === "OPTIONS")
       return new Response(null, {

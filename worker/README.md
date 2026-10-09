@@ -6,7 +6,7 @@ This Worker discovers images in public pages, shared Google Photos and iCloud Ph
 
 1. Install repository development dependencies with `npm ci` (Node 22 or newer; CI uses Node 24).
 2. Set a random secret of at least 32 characters with `npx wrangler secret put IMPORT_SECRET --config worker/wrangler.toml`.
-3. Set `APP_ORIGIN` in `worker/wrangler.toml` to the browser app origin. Set `FLICKR_API_KEY` as a Worker secret to enable Flickr album and photostream API access. Public photostreams also work without a key through the page adapter.
+3. `APP_ORIGIN` is empty by default so any page can call the Worker by its own URL; set it to a comma-separated list of browser origins to restrict callers. Set `FLICKR_API_KEY` as a Worker secret to enable Flickr album and photostream API access. Public photostreams also work without a key through the page adapter.
 4. Deploy with `npx wrangler deploy --config worker/wrangler.toml`. Either configure a same-origin `/api/albums/*` route or enter the Worker origin in the album builder's Importer connection section.
 
 Deployment is intentionally separate from the static GitHub Pages deployment. No credentials are bundled in public files. Local uploaded albums work without a Worker.
