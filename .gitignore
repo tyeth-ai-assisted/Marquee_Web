@@ -27,5 +27,6 @@ public/__fixture/
 
 design-system/
 
-# Wrangler local secrets for `wrangler dev` (IMPORT_SECRET, FLICKR_API_KEY). Never committed.
-worker/.dev.vars
+# Wrangler local secrets for `wrangler dev` (IMPORT_SECRET, FLICKR_API_KEY) and state. Never committed.
+.dev.vars
+.wrangler/

@@ -1,0 +1,26 @@
+# One Worker, one origin: the static app in public/ plus the photo importer in
+# worker/ at /api/albums/*. Deploy with `npx wrangler deploy`; Workers Builds picks
+# this file up from the repository root.
+name = "adafruit-marquee-web"
+main = "worker/index.js"
+compatibility_date = "2026-07-30"
+
+[assets]
+directory = "./public"
+binding = "ASSETS"
+# API requests reach the Worker; everything else is served straight from assets.
+run_worker_first = ["/api/*"]
+
+# Set IMPORT_SECRET with: npx wrangler secret put IMPORT_SECRET
+# Optional FLICKR_API_KEY secret enables Flickr album/API access.
+[vars]
+# Optional comma-separated browser origins allowed to call the importer. Empty lets
+# any page call it; the app itself is same-origin and never needs this.
+APP_ORIGIN = ""
+# Optional strict comma-separated source/CDN host allowlist.
+ALLOWED_HOSTS = ""
+
+[[ratelimits]]
+name = "RATE_LIMITER"
+namespace_id = "1001"
+simple = { limit = 240, period = 60 }

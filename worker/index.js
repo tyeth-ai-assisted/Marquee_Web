@@ -296,8 +296,16 @@ export async function verify(token, secret, now = Date.now()) {
 }
 export default {
   async fetch(request, env) {
-    // APP_ORIGIN lists the browser origins allowed to call this Worker, comma
-    // separated; empty allows any origin. The matching origin is echoed back.
+    const route = new URL(request.url);
+    // One Worker serves the app (static assets from public/) and the importer at
+    // /api/albums/*, so the browser never crosses origins. Without an assets
+    // binding (unit tests, the local dev server) only the API exists.
+    if (!route.pathname.startsWith("/api/albums/"))
+      return env.ASSETS
+        ? env.ASSETS.fetch(request)
+        : new Response("Not found.", { status: 404 });
+    // APP_ORIGIN optionally lists browser origins allowed to call the importer,
+    // comma separated; empty allows any origin. The matching origin is echoed back.
     const origins = (env.APP_ORIGIN || "")
       .split(",")
       .map((o) => o.trim().replace(/\/$/, ""))
@@ -342,7 +350,6 @@ export default {
         429,
       );
     try {
-      const route = new URL(request.url);
       if (
         route.pathname === "/api/albums/discover" &&
         request.method === "POST"
