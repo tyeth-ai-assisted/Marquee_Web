@@ -7,6 +7,7 @@ import {
   googleAlbum,
   discoverRecords,
   manifest,
+  MAX_IMAGE_EDGE,
   decodeHTMLText,
 } from "./discovery.js";
 const MAX_HTML = 2 * 1024 * 1024,
@@ -229,7 +230,7 @@ function imageResponse(type) {
 export async function downloadImage(payload, env = {}, fetcher = fetch) {
   let url = payload.url;
   if (payload.provider === "google-photos")
-    url = url.split("=")[0] + "=w1600-h1600";
+    url = url.split("=")[0] + `=w${MAX_IMAGE_EDGE}-h${MAX_IMAGE_EDGE}`;
   const ref = reference(url);
   let response;
   if (!ref.selected) response = (await remote(ref.url, env, fetcher)).response;
@@ -242,7 +243,7 @@ export async function downloadImage(payload, env = {}, fetcher = fetch) {
     if (!item) throw new Error("Selected picture was not found.");
     const imageURL =
       item.provider === "google-photos"
-        ? item.url.split("=")[0] + "=w1600-h1600"
+        ? item.url.split("=")[0] + `=w${MAX_IMAGE_EDGE}-h${MAX_IMAGE_EDGE}`
         : item.url;
     response = (await remote(imageURL, env, fetcher)).response;
   }
@@ -307,19 +308,32 @@ export async function verify(token, secret, now = Date.now()) {
 }
 export default {
   async fetch(request, env) {
+    const route = new URL(request.url);
+    // One Worker serves the app (static assets from public/) and the importer at
+    // /api/albums/*, so the browser never crosses origins. Without an assets
+    // binding (unit tests, the local dev server) only the API exists.
+    if (!route.pathname.startsWith("/api/albums/"))
+      return env.ASSETS
+        ? env.ASSETS.fetch(request)
+        : new Response("Not found.", { status: 404 });
+    // APP_ORIGIN optionally lists browser origins allowed to call the importer,
+    // comma separated; empty allows any origin. The matching origin is echoed back.
+    const origins = (env.APP_ORIGIN || "")
+      .split(",")
+      .map((o) => o.trim().replace(/\/$/, ""))
+      .filter(Boolean);
+    const origin = request.headers.get("Origin");
     const headers = {
       "Access-Control-Allow-Origin":
-        env.APP_ORIGIN || new URL(request.url).origin,
+        origin && (!origins.length || origins.includes(origin))
+          ? origin
+          : origins[0] || new URL(request.url).origin,
       Vary: "Origin",
       "Cache-Control": "private, no-store",
     };
     const json = (data, status = 200) =>
       Response.json(data, { status, headers });
-    if (
-      request.headers.get("Origin") &&
-      env.APP_ORIGIN &&
-      request.headers.get("Origin") !== env.APP_ORIGIN
-    )
+    if (origin && origins.length && !origins.includes(origin))
       return json({ error: "This origin is not enabled." }, 403);
     if (request.method === "OPTIONS")
       return new Response(null, {
@@ -348,7 +362,6 @@ export default {
         429,
       );
     try {
-      const route = new URL(request.url);
       if (
         route.pathname === "/api/albums/discover" &&
         request.method === "POST"

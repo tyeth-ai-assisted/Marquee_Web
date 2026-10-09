@@ -1,4 +1,8 @@
 /** Provider-neutral discovery. No script evaluation; presentation is a separate concern. */
+/** Panels top out at 800x480: ask providers for the smallest rendition covering
+ * that, and never more than MAX_IMAGE_EDGE, to keep Worker memory and time low. */
+export const MIN_IMAGE_EDGE = 800;
+export const MAX_IMAGE_EDGE = 1200;
 export const MAX_ITEMS = 100;
 // HTMLRewriter exposes raw attribute/text entities. Decode once before URL use.
 export function decodeHTMLText(value) {

@@ -4,12 +4,20 @@ This Worker discovers images in public pages, shared Google Photos and iCloud Ph
 
 ## Configure and deploy
 
-1. Install repository development dependencies with `npm ci` (Node 22 or newer; CI uses Node 24).
-2. Set a random secret of at least 32 characters with `npx wrangler secret put IMPORT_SECRET --config worker/wrangler.toml`.
-3. Set `APP_ORIGIN` in `worker/wrangler.toml` to the browser app origin. Set `FLICKR_API_KEY` as a Worker secret to enable Flickr album and photostream API access. Public photostreams also work without a key through the page adapter.
-4. Deploy with `npx wrangler deploy --config worker/wrangler.toml`. Either configure a same-origin `/api/albums/*` route or enter the Worker origin in the album builder's Importer connection section.
+The repository root `wrangler.toml` defines one Worker, `adafruit-marquee-web`, that serves the static app from `public/` and this importer at the same-origin `/api/albums/*` route. The browser therefore never makes a cross-origin request and no `APP_ORIGIN` configuration is needed.
 
-Deployment is intentionally separate from the static GitHub Pages deployment. No credentials are bundled in public files. Local uploaded albums work without a Worker. Wrangler can run the Worker locally for development; the app's `npm start` serves the static frontend only.
+1. Install repository development dependencies with `npm ci` (Node 22 or newer; CI uses Node 24).
+2. Set a random secret of at least 32 characters with `npx wrangler secret put IMPORT_SECRET`. Secrets survive later deploys; plain variables are replaced from `wrangler.toml` on every deploy.
+3. Optionally set `FLICKR_API_KEY` as a Worker secret to enable Flickr album and photostream API access. Public photostreams also work without a key through the page adapter.
+4. Deploy with `npx wrangler deploy`, or connect the repository to Workers Builds with the default `npx wrangler deploy` command so pushes to the chosen branch deploy automatically. The Worker URL then serves the whole app.
+
+A separately hosted copy of the app (for example GitHub Pages) uses the Worker named in `public/js/core/deployment.js` by default; users can enter another origin in the album builder's Importer connection section and list that page's origin in `APP_ORIGIN` if you want to restrict callers. No credentials are bundled in public files. Local uploaded albums work without a Worker.
+
+## Run locally
+
+`npm start` serves the app and, when `npm ci` has installed Miniflare, runs this Worker in the real workerd runtime at the same-origin `http://localhost:3000/api/albums/*` route. Leave the album builder's Importer connection blank and paste album, page or image URLs: the public Google Photos, iCloud Photos and Flickr test albums discover and download locally exactly as in production, and the Worker's `HTMLRewriter`, DNS preflight and download guards all run for real. A random `IMPORT_SECRET` is generated per run (set `IMPORT_SECRET` to pin one); `FLICKR_API_KEY` and `ALLOWED_HOSTS` are passed through from the environment. Restart the server after editing Worker code. Without Miniflare, or with `ALBUM_IMPORTER=0`, the route answers 503 and only uploads work.
+
+To exercise the Cloudflare toolchain instead, put `IMPORT_SECRET=<random 32+ characters>` in a root `.dev.vars` file and run `npx wrangler dev`, which serves the app and the importer together on `http://localhost:8787`.
 
 ## Limits and public sources
 
@@ -21,7 +29,7 @@ Direct image URLs can expire. Album references use `#marquee-photo=N` with a one
 
 Flickr `flic.kr/ps/...` short links resolve through the same guarded redirect handling as other URLs. Public `/photos/USER/` photostreams can be imported without an API key by parsing the page's JSON model data; scripts never execute. Photos retain stable IDs, titles, owner credit and provider order. The importer selects available non-square renditions up to 1600 pixels and excludes profile pictures and unrelated recommendations. Larger or partially loaded photostreams are labelled partial. Configured API access supports both `flickr.people.getPublicPhotos` and Flickr albums.
 
-Albums embed prepared images with a total 300 KB budget to leave space within IO canvas-state's history-off value ceiling. Large collections should be hosted rather than repeatedly embedded; reference-only asset storage and background rendering are future work. Animated uploads become still pictures. Crop and pre-dither to the panel palette before upload for best results. Attribution is displayed by default.
+URL-backed pictures are stored as links only, whichever export format is chosen, and the frame fetches each one through the importer when it is shown; providers are asked for the smallest rendition that covers the largest panel (800 pixels, never above 1,200) to keep Worker memory and time low. Only uploaded photos are embedded, within a total 300 KB budget that leaves space under IO canvas-state's history-off value ceiling. Background rendering is future work. Animated uploads become still pictures. Crop and pre-dither to the panel palette before upload for best results. Attribution is displayed by default.
 
 ## Tests and nightly repair
 
@@ -33,6 +41,6 @@ See [GitHub's Copilot API documentation](https://docs.github.com/en/copilot/how-
 
 ## Linked-card follow-up
 
-The follow-up adds `npm run test:previews:live` for the exact X, Bluesky and two Mastodon URLs in `test/fixtures/linked-card-sources.json`, with bagder before freediverx. These tests download the actual preview images and verify title/creator metadata; logos and avatars do not satisfy the tests. X/Bluesky use public Open Graph metadata. Mastodon attachment and link-card previews use its public status API, including `card.image` when the page omits `og:image`. No API key or signed-in session is used.
+The follow-up adds `npm run test:previews:live` for the exact X, Bluesky and two Mastodon URLs in `test/fixtures/linked-card-sources.json`, with bagder before freediverx. These tests download the actual preview images and verify title/creator metadata; logos and avatars do not satisfy the tests. X/Bluesky use public Open Graph metadata. Mastodon attachment and link-card previews use its public status API, including `card.image` when the page omits `og:image`. No API key or signed-in session is used. The same four URLs also resolve through `npm start` (see Run locally), so pasting them into the album builder shows the post image locally.
 
 Preview canaries run in the same nightly GitHub workflow and use its existing Copilot repair path. See the [linked-card proposal](../docs/proposals/linked-cards.md) for the remaining card editor and JSON-field mapping work.

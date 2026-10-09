@@ -1,11 +1,19 @@
 import { rasterType } from "./image-bytes.js";
 import { ALBUM_MAX_BYTES } from "./album.js";
 import { albumWorkerUrl } from "./deployment.js";
+/** Importer origin, or "" for this page's own /api/albums route. */
 export function importerBase() {
-  return (localStorage.getItem("marquee-album-worker") || albumWorkerUrl).replace(
-    /\/$/,
-    "",
-  );
+  return (
+    localStorage.getItem("marquee-album-worker") || defaultImporter()
+  ).replace(/\/$/, "");
+}
+/** The deployed Worker, unless this page already serves /api/albums itself. */
+export function defaultImporter(loc = location) {
+  if (!albumWorkerUrl) return "";
+  const own =
+    /^(localhost|127(\.\d+){3}|\[::1\])$/.test(loc.hostname) ||
+    loc.origin === new URL(albumWorkerUrl).origin;
+  return own ? "" : albumWorkerUrl;
 }
 export async function discoverAlbum(url, signal) {
   const r = await fetch(importerBase() + "/api/albums/discover", {

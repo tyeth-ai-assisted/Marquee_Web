@@ -2,6 +2,7 @@
 import assert from "node:assert/strict";
 import { readFile, mkdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
+import { fileURLToPath } from "node:url";
 import { Miniflare } from "miniflare";
 import { discover, downloadImage } from "../worker/index.js";
 const sources = JSON.parse(
@@ -18,11 +19,11 @@ if (only.some((id) => !sources.some((s) => s.id === id))) {
   process.exit(1);
 }
 const mf = new Miniflare({
+  // Repo-relative under rootPath: URL pathnames gain a stray slash on Windows
+  // and workerd rejects absolute module roots there.
+  rootPath: fileURLToPath(new URL("..", import.meta.url)),
   modules: true,
-  scriptPath: new URL(
-    "../test/helpers/linked-preview-worker.mjs",
-    import.meta.url,
-  ).pathname,
+  scriptPath: "test/helpers/linked-preview-worker.mjs",
   modulesRules: [{ type: "ESModule", include: ["**/*.js", "**/*.mjs"] }],
   compatibilityDate: "2026-07-30",
 });
