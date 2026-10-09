@@ -9,7 +9,13 @@ This Worker discovers images in public pages, shared Google Photos and iCloud Ph
 3. Set `APP_ORIGIN` in `worker/wrangler.toml` to the browser app origin. Set `FLICKR_API_KEY` as a Worker secret to enable Flickr album and photostream API access. Public photostreams also work without a key through the page adapter.
 4. Deploy with `npx wrangler deploy --config worker/wrangler.toml`. Either configure a same-origin `/api/albums/*` route or enter the Worker origin in the album builder's Importer connection section.
 
-Deployment is intentionally separate from the static GitHub Pages deployment. No credentials are bundled in public files. Local uploaded albums work without a Worker. Wrangler can run the Worker locally for development; the app's `npm start` serves the static frontend only.
+Deployment is intentionally separate from the static GitHub Pages deployment. No credentials are bundled in public files. Local uploaded albums work without a Worker.
+
+## Run locally
+
+`npm start` serves the app and, when `npm ci` has installed Miniflare, runs this Worker in the real workerd runtime at the same-origin `http://localhost:3000/api/albums/*` route. Leave the album builder's Importer connection blank and paste album, page or image URLs: the public Google Photos, iCloud Photos and Flickr test albums discover and download locally exactly as in production. Because the browser talks to its own origin there is no CORS or `APP_ORIGIN` gate to configure, and the Worker's `HTMLRewriter`, DNS preflight and download guards all run for real. A random `IMPORT_SECRET` is generated per run (set `IMPORT_SECRET` to pin one); `FLICKR_API_KEY` and `ALLOWED_HOSTS` are passed through from the environment. Restart the server after editing Worker code. Without Miniflare, or with `ALBUM_IMPORTER=0`, the route answers 503 and only uploads work.
+
+To exercise the Cloudflare toolchain instead, run `npx wrangler dev --config worker/wrangler.toml --var APP_ORIGIN:http://localhost:3000` (plus `IMPORT_SECRET` in `worker/.dev.vars`) and enter `http://localhost:8787` in the Importer connection section; loopback HTTP addresses are accepted there.
 
 ## Limits and public sources
 
