@@ -6,7 +6,8 @@
   "scripts": {
     "start": "node scripts/serve.js",
     "test": "node --test \"test/**/*.test.js\" \"test/**/*.test.mjs\"",
-    "test:albums:live": "node scripts/test-album-live.mjs"
+    "test:albums:live": "node scripts/test-album-live.mjs",
+    "test:previews:live": "node scripts/test-linked-previews-live.mjs"
   },
   "engines": {
     "node": ">=22"
