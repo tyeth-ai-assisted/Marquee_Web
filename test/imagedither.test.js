@@ -89,12 +89,16 @@ test('import keeps a known picture dither and drops an unknown one with a warnin
     { etype: 'image', x: 0, y: 0, src, dither: 'ordered' },
     { etype: 'feedimage', x: 0, y: 0, w: 10, h: 10, dither: 'FloydSteinberg', diffusion: 40 },
     { etype: 'image', x: 0, y: 0, src, dither: 'sparkle', diffusion: 3 },
+    { etype: 'carousel', x: 0, y: 0, w: 10, h: 10, items: [{ src }], dither: 'none' },
+    { etype: 'carousel', x: 0, y: 0, w: 10, h: 10, items: [{ src }], dither: 'sparkle' },
   ] }));
   assert.equal(r.ok, true);
   assert.equal(r.doc.elements[0].dither, 'ordered');
   assert.equal(r.doc.elements[1].diffusion, 40);
   assert.equal('dither' in r.doc.elements[2], false);
   assert.equal('diffusion' in r.doc.elements[2], false);
-  assert.equal(r.warnings.length, 1);
+  assert.equal(r.doc.elements[3].dither, 'none');
+  assert.equal('dither' in r.doc.elements[4], false);
+  assert.equal(r.warnings.length, 2);
   assert.match(r.warnings[0], /Element 3 .*dither/);
 });

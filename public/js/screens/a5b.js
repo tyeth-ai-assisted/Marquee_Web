@@ -225,8 +225,8 @@ function failRow(feed, why) {
 /**
  * The primary button's label.
  *
- * The corner marks are children of the button, so only the leading text node can be
- * rewritten — setting textContent would take the blueprint frame with it.
+ * Rewrites the leading text node rather than textContent, so any markup added to
+ * the button after its label (an icon, say) survives a relabel.
  */
 function setActionLabel(text) {
   const btn = $('a5bCreate');

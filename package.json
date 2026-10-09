@@ -1,18 +1,23 @@
 {
   "name": "marquee-web",
   "version": "1.0.0",
-  "description": "Adafruit IO Marquee — a static, browser-only e-ink canvas editor that renders panel bitmaps in pure JS",
+  "description": "Adafruit IO Marquee \u2014 a static, browser-only e-ink canvas editor that renders panel bitmaps in pure JS",
   "type": "module",
   "scripts": {
     "start": "node scripts/serve.js",
-    "test": "node --test \"test/**/*.test.js\" \"test/**/*.test.mjs\""
+    "test": "node --test \"test/**/*.test.js\" \"test/**/*.test.mjs\"",
+    "test:albums:live": "node scripts/test-album-live.mjs",
+    "test:previews:live": "node scripts/test-linked-previews-live.mjs"
   },
   "engines": {
-    "node": ">=18"
+    "node": ">=22"
   },
   "license": "MIT",
   "repository": {
     "type": "git",
     "url": "https://github.com/adafruit/Marquee_Web.git"
+  },
+  "devDependencies": {
+    "miniflare": "^4.20260730.0"
   }
 }

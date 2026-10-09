@@ -4,9 +4,11 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Adafruit IO — Marquee</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="preconnect" href="https://cdn-shop.adafruit.com" crossorigin>
 <link rel="icon" href="favicon.svg" type="image/svg+xml">
+<!-- The Adafruit design system's compiled tokens (--ada-*), then Marquee's own
+     roles on top of them. See the header of css/tokens.css. -->
+<link rel="stylesheet" href="css/vendor/ada/tokens.css">
 <link rel="stylesheet" href="css/tokens.css">
 <link rel="stylesheet" href="css/base.css">
 <link rel="stylesheet" href="css/app.css">
@@ -25,7 +27,11 @@
          pointed at. The trail is here to say WHICH board you are editing, which is the
          one fact the chrome could not answer while the title sat there alone. Written
          by router.js, which reads the live name field rather than the stored record, so a
-         rename reaches the crumb the moment it is typed rather than on the next save. -->
+         rename reaches the crumb the moment it is typed rather than on the next save.
+
+         The bar is IO's black header row at tool height, with the white flower the
+         Adafruit headers carry. Decorative: the crumb beside it already says whose. -->
+    <img class="chrome-logo" src="img/adafruit-flower-white.png" alt="" width="30" height="30">
     <span class="crumb">Adafruit IO</span>
     <span class="sep">/</span>
     <span class="crumb">Marquee</span>
@@ -100,10 +106,12 @@
         <!-- The way out when the shortlist is not enough. A banner rather than a
              footnote because "mine isn't here" is the first question a stranger to
              the list asks, and both answers are one click away. -->
-        <aside class="a4-banner blueprint" id="a4Banner">
-          <i class="corner tl"></i><i class="corner tr"></i><i class="corner bl"></i><i class="corner br"></i>
-          <p><strong>Don't see your device?</strong> Request a new board by <a href="https://github.com/adafruit/Adafruit_Marquee/issues/new?template=add-board.yml" target="_blank" rel="noopener">opening a new issue on GitHub</a>.</p>
-          <p><strong>Prefer to DIY?</strong> Marquee is open source — <a href="https://github.com/adafruit/Adafruit_Marquee/blob/main/README.md" target="_blank" rel="noopener">add your own board to the firmware</a>.</p>
+        <aside class="a4-banner notice" id="a4Banner">
+          <span class="notice-icon fa-icon" aria-hidden="true">&#xf05a;</span>
+          <div class="notice-body">
+            <p><strong>Don't see your device?</strong> Request a new board by <a href="https://github.com/adafruit/Adafruit_Marquee/issues/new?template=add-board.yml" target="_blank" rel="noopener">opening a new issue on GitHub</a>.</p>
+            <p><strong>Prefer to DIY?</strong> Marquee is open source — <a href="https://github.com/adafruit/Adafruit_Marquee/blob/main/README.md" target="_blank" rel="noopener">add your own board to the firmware</a>.</p>
+          </div>
         </aside>
 
         <div class="panel-grid panel-grid-3" id="panelGrid"></div>
@@ -111,7 +119,7 @@
 
         <div class="screen-foot ruled">
           <button type="button" class="btn btn-secondary" id="a4Back">Back</button>
-          <button type="button" class="btn btn-primary blueprint" id="a4Next" style="margin-left:auto">Next<i class="corner tl"></i><i class="corner tr"></i><i class="corner bl"></i><i class="corner br"></i></button>
+          <button type="button" class="btn btn-primary" id="a4Next" style="margin-left:auto">Next</button>
         </div>
       </div>
     </section>
@@ -132,8 +140,7 @@
           <!-- The account, stated rather than asked for. It was settled once in
                A1-C and every screen since has read it; re-offering the two fields
                here would be a second, unchecked way to change them. -->
-          <div class="account-plate blueprint" id="a5bAccount">
-            <i class="corner tl"></i><i class="corner tr"></i><i class="corner bl"></i><i class="corner br"></i>
+          <div class="account-plate card" id="a5bAccount">
             <div class="account-lines">
               <div class="eyebrow">Connected account</div>
               <div class="account-user" id="a5bAccountUser">—</div>
@@ -156,8 +163,7 @@
           <!-- The preview of what will be created, and then the progress display
                for creating it. Deliberately the same box in both states: the rows
                do not move, they only change colour. -->
-          <div class="feeds-plate blueprint">
-            <i class="corner tl"></i><i class="corner tr"></i><i class="corner bl"></i><i class="corner br"></i>
+          <div class="feeds-plate card">
             <p class="feeds-line" id="a5bGroupLine">The following feeds will be created under the group <span class="mono" id="a5bGroupKey">—</span>, if they do not already exist:</p>
             <!-- The feed key alone. What each one is FOR is in the rail, which says it
                  once for all four; spelling it out per row said the same thing a second
@@ -176,7 +182,7 @@
           <div class="screen-foot">
             <button type="button" class="btn btn-secondary" id="a5bBack">Back</button>
             <button type="button" class="btn btn-secondary" id="a5bSkip" style="margin-left:auto">Skip for now</button>
-            <button type="button" class="btn btn-primary blueprint" id="a5bCreate" disabled>Create group and feeds<i class="corner tl"></i><i class="corner tr"></i><i class="corner bl"></i><i class="corner br"></i></button>
+            <button type="button" class="btn btn-primary" id="a5bCreate" disabled>Create group and feeds</button>
           </div>
         </div>
 
@@ -185,10 +191,10 @@
              the four feed names above get their meaning, so the rows can stay bare. -->
         <aside class="col-rail">
           <div class="eyebrow">What a Group is</div>
-          <p style="font-size:12.5px; opacity:0.8; text-wrap:pretty">A Group is a folder for feeds on Adafruit IO. This display gets one, named after it, holding the four it needs: <span class="mono">bitmap</span>, the picture it draws; <span class="mono">sleep</span>, how long it waits before waking; <span class="mono">status</span>, what it reports back; and <span class="mono">canvas-state</span>, the editable scene behind the picture.</p>
+          <p class="prose">A Group is a folder for feeds on Adafruit IO. This display gets one, named after it, holding the four it needs: <span class="mono">bitmap</span>, the picture it draws; <span class="mono">sleep</span>, how long it waits before waking; <span class="mono">status</span>, what it reports back; and <span class="mono">canvas-state</span>, the editable scene behind the picture.</p>
           <div class="hr" style="margin:6px 0"></div>
           <div class="eyebrow">If it already exists</div>
-          <p style="font-size:12.5px; opacity:0.8; text-wrap:pretty">Nothing here is destructive. We check first, and an existing group is reused as it stands — a feed that is already there is left alone, we only ever add what's missing, and we'll tell you if there was nothing to do.</p>
+          <p class="prose">Nothing here is destructive. We check first, and an existing group is reused as it stands — a feed that is already there is left alone, we only ever add what's missing, and we'll tell you if there was nothing to do.</p>
         </aside>
       </div>
     </section>
@@ -222,8 +228,7 @@
           </div>
           <p class="hint">Most boards join 2.4 GHz networks only. A dual-band router that broadcasts one name for both works fine — the board picks the band it can see.</p>
 
-          <div class="promise-plate blueprint">
-            <i class="corner tl"></i><i class="corner tr"></i><i class="corner bl"></i><i class="corner br"></i>
+          <div class="promise-plate card">
             <span class="label">What happens to these</span>
             <p>The network name and password are saved with this display in this browser, and written onto the device over USB in the next step as part of its <span class="mono">cfg-marquee.json</span>.</p>
             <p>They are never sent to Adafruit IO and never stored in your account. Come back to this screen and they are filled in for you.</p>
@@ -231,19 +236,19 @@
 
           <div class="screen-foot">
             <button type="button" class="btn btn-secondary" id="a5cBack">Back</button>
-            <button type="button" class="btn btn-primary blueprint" id="a5cSave" style="margin-left:auto" disabled>Save network<i class="corner tl"></i><i class="corner tr"></i><i class="corner bl"></i><i class="corner br"></i></button>
+            <button type="button" class="btn btn-primary" id="a5cSave" style="margin-left:auto" disabled>Save network</button>
           </div>
         </div>
 
         <aside class="col-rail">
           <div class="eyebrow">Why we ask</div>
-          <p style="font-size:12.5px; opacity:0.8; text-wrap:pretty">The board is on its own once it is flashed. It wakes, joins your network, reads the picture you pushed from Adafruit IO, draws it and goes back to sleep — none of which it can do without these.</p>
+          <p class="prose">The board is on its own once it is flashed. It wakes, joins your network, reads the picture you pushed from Adafruit IO, draws it and goes back to sleep — none of which it can do without these.</p>
           <div class="hr" style="margin:6px 0"></div>
           <div class="eyebrow">Changing networks later</div>
-          <p style="font-size:12.5px; opacity:0.8; text-wrap:pretty">Choose “Update Wi-Fi” on the display’s tile in All displays and change them here, then plug the board back in so the new file can be written onto it. Moving a board to a new network always means USB: there is no way to push credentials to a board that cannot reach the network yet.</p>
+          <p class="prose">Choose “Update Wi-Fi” on the display’s tile in All displays and change them here, then plug the board back in so the new file can be written onto it. Moving a board to a new network always means USB: there is no way to push credentials to a board that cannot reach the network yet.</p>
           <div class="hr" style="margin:6px 0"></div>
           <div class="eyebrow">What won't work</div>
-          <p style="font-size:12.5px; opacity:0.8; text-wrap:pretty">Captive portals — hotel, campus and most guest networks — need a browser to accept terms before traffic passes. Your board has no browser, so it will associate and then fail to reach Adafruit IO.</p>
+          <p class="prose">Captive portals — hotel, campus and most guest networks — need a browser to accept terms before traffic passes. Your board has no browser, so it will associate and then fail to reach Adafruit IO.</p>
         </aside>
       </div>
     </section>
@@ -296,7 +301,7 @@
             </div>
 
             <div class="flash-actions" id="a6aConnectRow">
-              <button type="button" class="btn btn-primary blueprint" id="a6aConnect" disabled>Connect and flash<i class="corner tl"></i><i class="corner tr"></i><i class="corner bl"></i><i class="corner br"></i></button>
+              <button type="button" class="btn btn-primary" id="a6aConnect" disabled>Connect and flash</button>
               <button type="button" class="btn btn-secondary" id="a6aSkip">Skip, my board is already flashed</button>
             </div>
 
@@ -331,8 +336,7 @@
           <div class="flash-stage hidden" id="a6aStageDrive">
             <!-- The board's name is filled in by a6a.js from the firmware table (MagTag,
                  Feather ESP32-S3, …); "board" when the panel was set up by hand. -->
-            <div class="promise-plate drive-plate blueprint">
-              <i class="corner tl"></i><i class="corner tr"></i><i class="corner bl"></i><i class="corner br"></i>
+            <div class="promise-plate drive-plate card">
               <span class="label">Next, reset the <span data-role="board">board</span></span>
               <div class="rail-steps drive-steps">
                 <div><span class="n">1</span><div class="step-body">Press the <strong>RESET</strong> button on the <span data-role="board">board</span> and give it a few seconds.</div></div>
@@ -340,7 +344,7 @@
                 <div><span class="n">3</span><div class="step-body">Click below and choose that drive when the browser asks. <span class="mono">cfg-marquee.json</span> is written into it and read back to check.</div></div>
               </div>
               <div class="flash-actions drive-plate-actions">
-                <button type="button" class="btn btn-primary blueprint" id="a6aOpenDrive">Select Drive<i class="corner tl"></i><i class="corner tr"></i><i class="corner bl"></i><i class="corner br"></i></button>
+                <button type="button" class="btn btn-primary" id="a6aOpenDrive">Select Drive</button>
                 <button type="button" class="btn btn-secondary" id="a6aDriveSkip" style="margin-left:auto">Skip, it's already configured</button>
               </div>
             </div>
@@ -365,15 +369,14 @@
           <div class="flash-stage hidden" id="a6aStageDone">
             <!-- Same plate as the drive stage: numbered steps, the board's name, and the
                  button that finishes the job inside it. -->
-            <div class="promise-plate drive-plate blueprint">
-              <i class="corner tl"></i><i class="corner tr"></i><i class="corner bl"></i><i class="corner br"></i>
+            <div class="promise-plate drive-plate card">
               <span class="label">⏏ Eject, then press RESET</span>
               <div class="rail-steps drive-steps">
                 <div><span class="n">1</span><div class="step-body">Eject <span class="mono">MARQUEE</span> — the ⏏ next to it in the Finder sidebar, or "Safely remove" on Windows.</div></div>
                 <div><span class="n">2</span><div class="step-body">Press the <strong>RESET</strong> button on the <span data-role="board">board</span>.</div></div>
               </div>
               <div class="flash-actions drive-plate-actions">
-                <button type="button" class="btn btn-primary blueprint" id="a6aDone">Done — open the editor<i class="corner tl"></i><i class="corner tr"></i><i class="corner bl"></i><i class="corner br"></i></button>
+                <button type="button" class="btn btn-primary" id="a6aDone">Done — open the editor</button>
               </div>
             </div>
             <div class="flash-actions">
@@ -382,8 +385,7 @@
           </div>
 
           <!-- Hidden until the flow finishes or something fails; a6a.js reveals it. -->
-          <div class="log-plate blueprint hidden" id="a6aLogPlate">
-            <i class="corner tl"></i><i class="corner tr"></i><i class="corner bl"></i><i class="corner br"></i>
+          <div class="log-plate card hidden" id="a6aLogPlate">
             <span class="label">Log</span>
             <pre class="mono log-body" id="a6aLog"></pre>
           </div>
@@ -405,34 +407,34 @@
             </div>
             <div class="hr" style="margin:6px 0"></div>
             <div class="eyebrow">Where the firmware comes from</div>
-            <p style="font-size:12.5px; opacity:0.8; text-wrap:pretty">The latest <a href="https://github.com/adafruit/Adafruit_Marquee/releases" target="_blank" rel="noopener">Adafruit_Marquee release</a>, downloaded here for this display's board — the version is shown next to it. The download is checked against the release's checksum, the image is checked before anything is written, and the chip is checked against it before the write starts.</p>
+            <p class="prose">The latest <a href="https://github.com/adafruit/Adafruit_Marquee/releases" target="_blank" rel="noopener">Adafruit_Marquee release</a>, downloaded here for this display's board — the version is shown next to it. The download is checked against the release's checksum, the image is checked before anything is written, and the chip is checked against it before the write starts.</p>
             <div class="hr" style="margin:6px 0"></div>
             <div class="eyebrow">What gets written</div>
             <!-- a6a.js rewrites this for a board with no erase option (the X4 Pro). -->
-            <p style="font-size:12.5px; opacity:0.8; text-wrap:pretty" id="a6aRailWritten">The image shown above, at the start of the flash. The <span class="mono">MARQUEE</span> drive and whatever is on it are kept unless you tick "Erase the whole chip first". The configuration is the next step, and goes onto that drive.</p>
+            <p class="prose" id="a6aRailWritten">The image shown above, at the start of the flash. The <span class="mono">MARQUEE</span> drive and whatever is on it are kept unless you tick "Erase the whole chip first". The configuration is the next step, and goes onto that drive.</p>
           </div>
 
           <div id="a6aRailDrive" class="hidden">
             <div class="eyebrow">What is written to the device?</div>
-            <p style="font-size:12.5px; opacity:0.8; text-wrap:pretty">The marquee firmware and one file, <span class="mono">cfg-marquee.json</span>, at the top level of the drive. This file contains information to tell the device about your Adafruit IO account, the group key, the network from the Wi-Fi step, and the configuration of the e-ink panel.</p>
+            <p class="prose">The marquee firmware and one file, <span class="mono">cfg-marquee.json</span>, at the top level of the drive. This file contains information to tell the device about your Adafruit IO account, the group key, the network from the Wi-Fi step, and the configuration of the e-ink panel.</p>
             <button type="button" class="btn btn-ghost btn-sm" id="a6aShowCfg">Show cfg-marquee.json File</button>
 
             <div class="hr" style="margin:6px 0"></div>
             <div class="eyebrow">Browser Support</div>
-            <p style="font-size:12.5px; opacity:0.8; text-wrap:pretty">This page requires needs WebSerial and writing the drive needs the File System Access API. Supported Browsers are Chrome, Edge, and the latest Firefox versions.</p>
+            <p class="prose">This page requires needs WebSerial and writing the drive needs the File System Access API. Supported Browsers are Chrome, Edge, and the latest Firefox versions.</p>
 
             <div class="hr" style="margin:6px 0"></div>
             <div class="eyebrow">Help - No Drive Appeared!</div>
-            <p style="font-size:12.5px; opacity:0.8; text-wrap:pretty">Try unplugging and replugging the device, then pressing RESET again.</p>
+            <p class="prose">Try unplugging and replugging the device, then pressing RESET again.</p>
           </div>
 
 
           <div id="a6aRailDone" class="hidden">
             <div class="eyebrow">Eject first</div>
-            <p style="font-size:12.5px; opacity:0.8; text-wrap:pretty">Your computer may still be holding part of the file in a write cache. Ejecting flushes it to the board; resetting first can leave a truncated file and a warning about an improperly removed disk.</p>
+            <p class="prose">Your computer may still be holding part of the file in a write cache. Ejecting flushes it to the board; resetting first can leave a truncated file and a warning about an improperly removed disk.</p>
             <div class="hr" style="margin:6px 0"></div>
             <div class="eyebrow">What happens on boot</div>
-            <p style="font-size:12.5px; opacity:0.8; text-wrap:pretty">The board reads the file, drives the panel, joins your Wi-Fi and fetches its picture from Adafruit IO. If nothing draws after a minute, open a serial monitor at 115200 — the firmware prints why it stopped.</p>
+            <p class="prose">The board reads the file, drives the panel, joins your Wi-Fi and fetches its picture from Adafruit IO. If nothing draws after a minute, open a serial monitor at 115200 — the firmware prints why it stopped.</p>
           </div>
 
         </aside>
@@ -465,9 +467,8 @@
         <!-- Hidden at rest, and absent from the tab order with it. Anchored to the
              bar's left padding rather than to the chip, so it does not walk sideways
              as the value inside the chip changes length. -->
-        <div class="sleep-pop blueprint elev-md hidden" id="sleepPop" role="dialog"
+        <div class="sleep-pop elev-md hidden" id="sleepPop" role="dialog"
              aria-label="Wake and redraw" aria-modal="false">
-          <i class="corner tl"></i><i class="corner tr"></i><i class="corner bl"></i><i class="corner br"></i>
           <span class="label">Wake and redraw</span>
 
           <!-- A minute at a time up to the deep-sleep line, then coarsening: the four
@@ -514,7 +515,7 @@
         <!-- No note beside the button here: the sentence that explains what the push
              does is #pushCue, inside the sleep panel above, where it is read at the
              moment the decision is being made rather than permanently. -->
-        <button type="button" class="btn btn-primary blueprint btn-commit" id="sendBmpSleep">Push to display<i class="corner tl"></i><i class="corner tr"></i><i class="corner bl"></i><i class="corner br"></i></button>
+        <button type="button" class="btn btn-primary btn-commit" id="sendBmpSleep">Push to display</button>
       </div>
 
       <div class="editor">
@@ -532,6 +533,7 @@
           <button type="button" class="btn prop-btn" id="addChart"><span class="tile">∿</span>Chart</button>
           <button type="button" class="btn prop-btn" id="addGaugeBtn"><span class="tile">◠</span>Gauge</button>
           <button type="button" class="btn prop-btn" id="addImageBtn"><span class="tile">▣</span>Image</button>
+          <button type="button" class="btn prop-btn" id="addAlbumBtn"><span class="tile">▧</span>Photo album</button>
           <input type="file" id="imgInput" accept="image/png,image/jpeg,image/bmp,.png,.jpg,.jpeg,.bmp" hidden>
           <!-- A picture READ FROM A FEED — a camera project's latest frame, published as
                base64. Re-read on every push and every live take, like linked text. The
@@ -621,9 +623,8 @@
                    1-bit panel — made while looking at the artwork. Only pictures are
                    dithered (canvas/imagedither.js); this is their default, and each
                    picture can override it in its inspector. -->
-              <div class="dither-pop blueprint elev-md hidden" id="ditherPop" role="dialog"
+              <div class="dither-pop elev-md hidden" id="ditherPop" role="dialog"
                    aria-label="Picture dither" aria-modal="false">
-                <i class="corner tl"></i><i class="corner tr"></i><i class="corner bl"></i><i class="corner br"></i>
                 <span class="label">Picture dither</span>
                 <p class="pop-note">The default for every picture. Text, charts and shapes are never dithered: they snap to the nearest panel colour, so they stay crisp.</p>
                 <div class="seg seg-tight" id="ditherSeg">
@@ -650,8 +651,7 @@
             </span>
           </div>
 
-          <section id="canvasJsonPanel" class="blueprint" aria-label="Canvas layout JSON (auto-saved)">
-            <i class="corner tl"></i><i class="corner tr"></i><i class="corner bl"></i><i class="corner br"></i>
+          <section id="canvasJsonPanel" class="card" aria-label="Canvas layout JSON (auto-saved)">
             <div class="cj-head">
               <span class="cj-title">canvas.json</span>
               <div class="cj-actions">
@@ -742,7 +742,7 @@
              count to give, so the sentence beside it stands alone the rest of the time. -->
         <span class="action-label hidden" id="queueNote"></span>
         <span class="action-note">Anything you edit will be included on the next take</span>
-        <button type="button" class="btn btn-primary blueprint btn-commit" id="editDashboard">Edit dashboard<i class="corner tl"></i><i class="corner tr"></i><i class="corner bl"></i><i class="corner br"></i></button>
+        <button type="button" class="btn btn-primary btn-commit" id="editDashboard">Edit dashboard</button>
       </div>
 
       <!-- The before/after pair is the core idea of this screen: it makes "your
@@ -809,6 +809,23 @@
 
 <!-- Import canvas.json. Opened by core/doc.js once the file has validated; the active
      display always wins, so this only asks how to place the artwork on it. -->
+<div class="modal-backdrop hidden" id="albumModal">
+  <div class="modal album-modal" role="dialog" aria-modal="true" aria-labelledby="albumTitle">
+    <div class="modal-head"><h4 id="albumTitle">Build a photo album</h4><button type="button" class="modal-close" id="albumClose" aria-label="Close album builder">✕</button></div>
+    <label class="field">Album name<input id="albumName" maxlength="100"></label>
+    <label class="field">Image, album or webpage URLs (one per line)<textarea id="albumUrls" rows="3" placeholder="Paste images, Google Photos, iCloud, Flickr or webpage links"></textarea></label>
+    <div class="prop-row"><button type="button" class="btn btn-sm" id="albumDiscover">Find pictures</button><label class="btn btn-sm">Upload photos<input type="file" id="albumUploads" accept="image/png,image/jpeg,image/gif,image/webp,image/bmp" multiple></label><label class="btn btn-sm">Import album JSON<input type="file" id="albumManifest" accept="application/json,.json"></label></div>
+    <details><summary>Importer connection</summary><label class="field">Cloudflare Worker address<input id="albumWorker" type="url" placeholder="Leave blank for same-origin /api/albums"></label><p class="hint">URL imports require the configured Worker. Local uploads work without it.</p></details>
+    <p class="hint">For best results, crop to your frame and pre-dither to your display palette. Prepared PNGs keep their pixels when no resize is needed. For longer-lived hosting, save prepared pictures to IO feeds (history off, within its size limit), GitHub, Flickr or a public Google Photos or iCloud Photos shared album. Direct image links may expire. Shared links give access to anyone holding the link.</p>
+    <div class="prop-row"><button type="button" class="btn btn-sm" id="albumSelectAll">Select all</button><button type="button" class="btn btn-sm" id="albumSelectNone">Clear selection</button><select id="albumMode" aria-label="URL export format"><option value="references">Album item references</option><option value="direct">Direct image URLs (may expire)</option></select></div>
+    <p id="albumStatus" role="status" aria-live="polite"></p><p id="albumCount" class="hint"></p>
+    <div id="albumGrid" class="album-grid"></div>
+    <p class="hint">Playback runs on display takes while this browser app stays open. Preview buttons do not publish. Attribution is on by default; you can disable it in the frame inspector.</p>
+    <div class="modal-actions"><button type="button" class="btn btn-sm" id="albumExportList">Export URL list</button><button type="button" class="btn btn-sm" id="albumExportJson">Export album JSON</button><button type="button" class="btn btn-sm" id="albumCancel">Cancel</button><button type="button" class="btn btn-sm btn-primary" id="albumSave">Save carousel</button></div>
+  </div>
+</div>
+<dialog id="albumEnlarge"><button type="button" id="albumEnlargeClose">Close</button><img alt="Enlarged album picture"></dialog>
+
 <div class="modal-backdrop hidden" id="importModal">
   <div class="modal import-modal" role="dialog" aria-modal="true" aria-labelledby="importTitle">
     <div class="modal-head">
@@ -869,8 +886,7 @@
          val('ioUser') in the app, SETTINGS_SCOPE, snapshotAccountFields() and
          restoreAccountFields() all read them. `hidden` takes them off the screen
          and leaves .value and the `input` event exactly as they were. -->
-    <div class="account-plate blueprint" id="settingsAccount">
-      <i class="corner tl"></i><i class="corner tr"></i><i class="corner bl"></i><i class="corner br"></i>
+    <div class="account-plate card" id="settingsAccount">
       <div class="account-lines">
         <div class="eyebrow">Connected account</div>
         <div class="account-user" id="settingsAccountUser">—</div>
@@ -932,8 +948,7 @@
 
          Picking a device on A4 fills all of this in. It is here for a panel someone
          wired themselves, and for the orientation control, which has no other home. -->
-        <details class="disclosure blueprint" id="advanced">
-          <i class="corner tl"></i><i class="corner tr"></i><i class="corner bl"></i><i class="corner br"></i>
+        <details class="disclosure card" id="advanced">
           <summary>Advanced — panel, driver and pins</summary>
           <div class="disclosure-body">
             <p class="warn-line">Only change these if you wired the panel yourself. Everything here came from the preset.</p>
@@ -1089,8 +1104,7 @@
      Deliberately not a <form>. There is no submit event to default-GET the key
      into a query string; Enter is wired explicitly in a1c.js instead. -->
 <div class="modal-backdrop under-chrome hidden" id="a1cModal">
-  <div class="modal modal-gate blueprint" role="dialog" aria-modal="true" aria-labelledby="a1cTitle">
-    <i class="corner tl"></i><i class="corner tr"></i><i class="corner bl"></i><i class="corner br"></i>
+  <div class="modal modal-gate" role="dialog" aria-modal="true" aria-labelledby="a1cTitle">
     <div class="modal-head">
       <div class="head-lines">
         <div class="eyebrow" id="a1cEyebrow">Before you add a display</div>
@@ -1124,7 +1138,7 @@
     <div class="modal-actions">
       <span class="hint" id="a1cFoot" style="flex:1; text-align:left">We check the key before continuing.</span>
       <button type="button" class="btn btn-secondary" id="a1cCancel">Cancel</button>
-      <button type="button" class="btn btn-primary blueprint" id="a1cSave">Connect account<i class="corner tl"></i><i class="corner tr"></i><i class="corner bl"></i><i class="corner br"></i></button>
+      <button type="button" class="btn btn-primary" id="a1cSave">Connect account</button>
     </div>
   </div>
 </div>

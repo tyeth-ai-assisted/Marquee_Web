@@ -123,7 +123,7 @@ export function ditheredImageCanvas(img, crop, w, h, opts, type = display.type, 
 function ownerOf(k) {
   if (k.getAttr('etype') === 'image') return k;
   const g = k.findAncestor('.element');
-  return g && g.getAttr('etype') === 'feedimage' ? g : null;
+  return g && ['feedimage', 'carousel'].includes(g.getAttr('etype')) ? g : null;
 }
 
 /**

@@ -291,3 +291,13 @@ that machine's idea of the panel.
   of IO's makes rule 5 swallow a genuine remote edit. Rule 2 covers the common case,
   and closing the rest would mean recording the datum's `created_at` at publish time
   and comparing IO's clock against itself.
+
+### The `carousel` element
+
+A photo album frame. `items` is an ordered array of `{id,url,src,title,credit,natW,natH}` records. `url` may be a direct image, a page preview or a source reference such as `https://example.com/album#marquee-photo=2`; `src` is the downloaded/prepared data URL used for offline fallback. Albums support up to 100 items with at most 300 KB of embedded data URLs. Direct URLs may expire; provider album references can retain a stable photo ID.
+
+Authored fields are `w`, `h`, `fit`, `items`, `albumName`, `interval` (seconds, minimum 60, default 600), `paused`, `order` (`sequence` or `shuffle`), `seed`, and `showCaption` (default true). Caption text combines the title and credit/username, with source host as a metadata fallback. Runtime samples are `slideIndex`, `shownAt`, `src`, `natW` and `natH`; playback does not count as a design change. Serialization saves the current frame so reload and canvas export remain useful offline.
+
+Picture decoding is awaited before an explicit device push or live take. Preview refreshes do not advance playback; Previous/Next changes only the preview until a normal publish. The widget shares PR #22's frame fit geometry, retains the last picture on failures and rejects late results after album replacement/removal. Convert current frame to image freezes the whole visible frame, including optional attribution.
+
+URL import requires the configured Cloudflare Worker. The browser still renders and publishes the bitmap, so unattended cycling needs the app to remain open. Device firmware and the Worker scraper do not themselves rotate the album when the browser is closed. See [photo importer setup](../worker/README.md) and [proposal](proposals/photo-albums.md).

@@ -26,7 +26,8 @@ jobs:
         with:
           # 21+ : the test script relies on node expanding the --test globs itself
           node-version: '24'
-      # No install step: the repo has no runtime or dev dependencies.
+      # Miniflare runs importer tests against the real Worker runtime.
+      - run: npm ci
       - run: npm test
 
   deploy:
@@ -50,7 +51,11 @@ jobs:
           touch .nojekyll
           # Custom domain. Must live in the deploy, not public/, for the same
           # reason as .nojekyll: gh-pages is rebuilt from scratch on every push.
-          echo "marquee.adafruit-playground.com" > CNAME
+          if [ "$GITHUB_REPOSITORY" = "adafruit/Marquee_Web" ]; then
+            echo "marquee.adafruit-playground.com" > CNAME
+          else
+            rm -f CNAME
+          fi
           git init -q
           git config user.name  "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"

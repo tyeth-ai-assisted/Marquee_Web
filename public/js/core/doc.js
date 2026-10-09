@@ -20,7 +20,7 @@ import { layer, fitZoom, hideDitherPreview, syncDisplayBackground } from '../can
 import { select } from '../canvas/selection.js';
 import {
   addLabel, addDivider, addLineChart, addGauge, addIndicator, addBattery, addImage, addDatetime,
-  addFeedImage, feedImageSettled, remapColorsToPalette,
+  addFeedImage, addCarousel, feedImageSettled, remapColorsToPalette,
 } from '../canvas/elements.js';
 import { placeInSavedOrder } from '../canvas/zorder.js';
 import { normalizeDatetimeAttrs } from './timefmt.js';
@@ -88,6 +88,8 @@ export function serialize() {
           src: n.getAttr('src'), w: Math.round(n.width()), h: Math.round(n.height()),
           natW: n.getAttr('natW'), natH: n.getAttr('natH'),
         }, savedImageDither(n));
+      } else if (etype === 'carousel') {
+        Object.assign(base, {w:n.getAttr('w'),h:n.getAttr('h'),fit:n.getAttr('fit'),items:n.getAttr('items'),albumName:n.getAttr('albumName'),interval:n.getAttr('interval'),order:n.getAttr('order'),seed:n.getAttr('seed'),paused:n.getAttr('paused'),showCaption:n.getAttr('showCaption'),slideIndex:n.getAttr('slideIndex'),shownAt:n.getAttr('shownAt'),src:n.getAttr('src'),natW:n.getAttr('natW'),natH:n.getAttr('natH')}, savedImageDither(n));
       } else if (etype === 'feedimage') {
         // The frame and the fit are the design; the picture (src and its natural size)
         // is the last reading, saved for the same reason a label's feedValue is — so a
@@ -235,10 +237,14 @@ export function deserialize(doc, { keepDisplay = false } = {}) {
         img.onerror = () => resolve();
         img.src = el.src;
       }));
+    } else if (el.etype === 'carousel') {
+      slots[i] = addCarousel(el);
+      loading.push(feedImageSettled(slots[i]));
     } else if (el.etype === 'feedimage') {
       // Built at once, with its frame; the saved picture decodes behind it and is
       // awaited by the same promise as a static image's, for the same reason.
-      loading.push(feedImageSettled(addFeedImage(el)));
+      slots[i] = addFeedImage(el);
+      loading.push(feedImageSettled(slots[i]));
     } else {
       // Every factory reads its own attrs off the raw saved object, so the factory
       // is also the deserializer — including addGauge's `value` -> `gaugeValue`

@@ -12,6 +12,7 @@
 
 # --- Node --------------------------------------------------------------------
 node_modules/
+_site/
 npm-debug.log*
 yarn-error.log*
 .npm/

@@ -1,0 +1,78 @@
+name: Photo album checks
+on:
+  pull_request:
+  push:
+    branches: [main, feature/photo-albums]
+  schedule:
+    - cron: '17 3 * * *'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  unit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - run: npm ci
+      - run: npm test
+  live:
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      issues: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Public Google Photos, iCloud Photos and Flickr canaries
+        id: canary
+        continue-on-error: true
+        run: node scripts/test-album-live.mjs 2>&1 | tee album-canary.log
+        shell: bash
+      - name: Public social preview image canaries
+        id: previews
+        continue-on-error: true
+        run: |
+          npm ci
+          node scripts/test-linked-previews-live.mjs 2>&1 | tee linked-preview-canary.log
+        shell: bash
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: album-canary
+          path: |
+            album-canary.log
+            linked-preview-canary.log
+      - name: Open repair issue and request Copilot PR
+        if: steps.canary.outcome == 'failure' || steps.previews.outcome == 'failure'
+        uses: actions/github-script@v7
+        env:
+          COPILOT_AGENT_TOKEN: ${{ secrets.COPILOT_AGENT_TOKEN }}
+        with:
+          script: |
+            const title = 'Repair public photo album import canary';
+            const {owner, repo} = context.repo;
+            const issues = await github.paginate(github.rest.issues.listForRepo, {owner, repo, state:'open'});
+            let issue = issues.find(i => !i.pull_request && i.title === title);
+            const body = `Nightly album or social-preview test failed. Run: https://github.com/${owner}/${repo}/actions/runs/${context.runId}\n\nInvestigate upstream/network failure versus parser regression. Reproduce with npm run test:albums:live and npm run test:previews:live, repair discovery without executing scripts or weakening fetch guards, add a regression fixture, and run npm test. Open a repair PR for review; do not merge automatically. Avoid logging album keys or CDN URLs.`;
+            if (!issue) issue = (await github.rest.issues.create({owner, repo, title, body})).data;
+            else await github.rest.issues.update({owner, repo, issue_number:issue.number, body});
+            if (issue.assignees?.some(a => a.login === 'copilot-swe-agent[bot]')) return;
+            if (!process.env.COPILOT_AGENT_TOKEN) {
+              core.warning('Repair issue created. Set COPILOT_AGENT_TOKEN to a user token with actions, contents, issues and pull-request write access and enable Copilot cloud agent to request repair PRs.');
+              return;
+            }
+            const r = await fetch(`https://api.github.com/repos/${owner}/${repo}/issues/${issue.number}/assignees`, {
+              method:'POST', headers:{Authorization:`Bearer ${process.env.COPILOT_AGENT_TOKEN}`,Accept:'application/vnd.github+json','Content-Type':'application/json','X-GitHub-Api-Version':'2022-11-28'},
+              body:JSON.stringify({assignees:['copilot-swe-agent[bot]'],agent_assignment:{target_repo:`${owner}/${repo}`,base_branch:context.payload.repository.default_branch,custom_instructions:'Fix the failing album or social-preview canary and open a tested repair PR. Do not merge.'}})
+            });
+            if (!r.ok) core.warning(`Copilot assignment failed with HTTP ${r.status}; repair issue remains open.`);
+      - name: Fail the run when any source canary fails
+        if: steps.canary.outcome == 'failure' || steps.previews.outcome == 'failure'
+        run: exit 1

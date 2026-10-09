@@ -12,6 +12,8 @@
 import { display, PALETTES, neutralShades, ditherChipLabel } from './palette.js';
 import { IMAGE_DITHERS, imageDitherOf } from './imagedither.js';
 import { panelShowsGreys } from '../device/presets.js';
+import { openAlbumBuilder } from '../albums/builder.js';
+import { refreshCarousel, carouselToImage } from './elements.js';
 import { stage, layer, tr, snap, editorOpts, suspendDitherPreview, scheduleDitherRefresh } from './stage.js';
 import {
   isWidget, rebuildWidget, elementColor, setElementColor, wireNode, nextId,
@@ -40,7 +42,7 @@ export function select(node) {
       tr.enabledAnchors(['middle-left', 'middle-right', 'top-center', 'bottom-center']);
     else if (etype === 'gauge' || etype === 'indicator' || etype === 'battery')
       tr.enabledAnchors(['top-left', 'top-right', 'bottom-left', 'bottom-right']);
-    else if (etype === 'image' || etype === 'feedimage')
+    else if (etype === 'image' || etype === 'feedimage' || etype === 'carousel')
       tr.enabledAnchors(['top-left', 'top-right', 'bottom-left', 'bottom-right',
                          'middle-left', 'middle-right', 'top-center', 'bottom-center']);
     else
@@ -605,6 +607,20 @@ export function refreshProps() {
     <p class="hint">This panel can show 4 greys, which draws the grid and smooth lines in
       grey instead of dots and steps. Set Mode to Grayscale 4 in Display settings,
       then use <b>Update Wi-Fi</b> on the display list to write it to the board.</p>` : ''}`;
+  } else if (etype === 'carousel') {
+    html += `<p>${escapeHtml(n.getAttr('albumName') || 'Photo album')} · ${(n.getAttr('slideIndex') || 0)+1} / ${(n.getAttr('items') || []).length}</p>
+      <button type="button" class="btn btn-sm btn-block" id="pAlbumEdit">Edit album and URLs</button>
+      <div class="prop-row"><button type="button" class="btn btn-sm" id="pAlbumPrev">Previous</button><button type="button" class="btn btn-sm" id="pAlbumNext">Next</button></div>
+      <label class="check-row"><input type="checkbox" id="pAlbumPaused"${n.getAttr('paused')?' checked':''}> Pause playback</label>
+      <label class="check-row"><input type="checkbox" id="pAlbumCaption"${n.getAttr('showCaption')!==false?' checked':''}> Show title and attribution</label>
+      <label class="field">Seconds per picture<input type="number" id="pAlbumInterval" value="${n.getAttr('interval') || 600}" min="60"></label>
+      <label class="field">Order<select id="pAlbumOrder"><option value="sequence">In album order</option><option value="shuffle"${n.getAttr('order')==='shuffle'?' selected':''}>Shuffle</option></select></label>
+      <div class="prop-row"><span class="label">W</span><input type="number" id="pFiW" min="8" value="${n.getAttr('w')}"><span class="label">H</span><input type="number" id="pFiH" min="8" value="${n.getAttr('h')}"></div>
+      <label class="field">Picture<select id="pFiFit">${FEED_IMAGE_FITS.map(f=>`<option value="${f.id}"${n.getAttr('fit')===f.id?' selected':''}>${escapeHtml(f.label)}</option>`).join('')}</select></label>
+      ${imageDitherRowsHTML(n)}
+       <p class="hint">Keep this app open for playback on display takes. Previous/Next preview only. Crop and pre-dither before importing for best results.</p>
+      ${n.getAttr('carouselProblem')?`<p role="alert">${escapeHtml(n.getAttr('carouselProblem'))}</p>`:''}
+      <button type="button" class="btn btn-sm btn-block" id="pAlbumFreeze">Convert current frame to image</button>`;
   } else if (etype === 'feedimage') {
     // The Feed and Value rows first, as on every bound element; then the frame. No
     // natural-size reset: the picture changes with every reading, so the frame is the
@@ -661,7 +677,7 @@ export function refreshProps() {
   // Images carry their own colors; everything else gets an ink swatch. For an
   // indicator that ink is the lamp's outline (its fill comes from On/Off above);
   // same for a battery, whose fill comes from the conditions.
-  html += (etype === 'image' || etype === 'feedimage' ? ''
+  html += (etype === 'image' || etype === 'feedimage' || etype === 'carousel' ? ''
     : `<span class="label">${etype === 'indicator' || etype === 'battery' ? 'Outline' : 'Ink'}</span>`
       + swatchHTML(elementColor(n), undefined,
           etype === 'battery' ? neutralShades() : PALETTES[display.type]))
@@ -754,6 +770,15 @@ export function refreshProps() {
   // A static image's way in: the picker converts it on a successful pick, so a
   // cancelled picker leaves the image exactly as it was.
   bind('pImgFeed', () => openFeedPicker(n, { mode: 'image' }));
+
+  bind('pAlbumEdit', () => openAlbumBuilder(n));
+  const albumStep = async (step) => { await refreshCarousel(n,{step}); refreshProps(); };
+  bind('pAlbumPrev', () => albumStep(-1)); bind('pAlbumNext', () => albumStep(1));
+  bind('pAlbumPaused', e => { n.setAttr('paused',e.target.checked); n.setAttr('shownAt',Date.now()); });
+  bind('pAlbumCaption', e => { n.setAttr('showCaption',e.target.checked); rebuildWidget(n); });
+  bind('pAlbumInterval', e => n.setAttr('interval',Math.max(60,+e.target.value||600)));
+  bind('pAlbumOrder', e => n.setAttr('order',e.target.value));
+  bind('pAlbumFreeze', () => { const img=carouselToImage(n); if(img)select(img); });
 
   // The feed image's frame. Width and height are independent on purpose (see select()).
   const fiMin = MIN_WIDGET_H.feedimage;

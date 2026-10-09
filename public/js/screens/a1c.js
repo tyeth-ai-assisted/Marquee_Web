@@ -97,8 +97,8 @@ function setFoot(text, tone = '') {
 
 const RESTING_FOOT = 'We check the key before continuing.';
 
-/** The primary button's label. Corner marks are children of the button, so only
- *  the leading text node can be rewritten — textContent would take the frame. */
+/** The primary button's label. Rewrites the leading text node rather than
+ *  textContent, so markup added after the label (an icon, say) survives. */
 function setActionLabel(text) {
   const btn = $('a1cSave');
   if (btn) btn.firstChild.nodeValue = text;

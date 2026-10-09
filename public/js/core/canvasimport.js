@@ -15,12 +15,13 @@
 
 import { PALETTES, logicalDimsOf, isHexColor } from '../canvas/palette.js';
 import { IMAGE_DITHERS } from '../canvas/imagedither.js';
+import { normalizeAlbum } from './album.js';
 
 /** Every etype deserialize() has a factory for. Anything else would silently load as
  *  a label, which is worse than saying so and leaving it out. */
 export const KNOWN_ETYPES = new Set([
   'label', 'divider', 'image', 'linechart', 'gauge', 'indicator', 'battery', 'datetime',
-  'feedimage',
+  'feedimage', 'carousel',
 ]);
 
 const isDataImage = (src) => typeof src === 'string' && src.startsWith('data:image/');
@@ -112,12 +113,16 @@ export function validateCanvasDoc(text) {
       el = { ...el, src: null, natW: null, natH: null };
     }
     // A picture's own dither. Unknown is not fatal: the picture just follows the panel.
-    if ((el.etype === 'image' || el.etype === 'feedimage') && el.dither !== undefined
+    if (['image', 'feedimage', 'carousel'].includes(el.etype) && el.dither !== undefined
         && !IMAGE_DITHERS.includes(el.dither)) {
       warnings.push(`${at} has an unknown dither ${JSON.stringify(el.dither)}; it will use the panel default.`);
       el = { ...el };
       delete el.dither;
       delete el.diffusion;
+    }
+    if (el.etype === 'carousel') {
+      try { el = {...el, items:normalizeAlbum(el.items)}; if(el.src != null && !isDataImage(el.src))el.src=null; }
+      catch(e) { errors.push(`${at}: ${e.message}`); return; }
     }
     elements.push(el);
   });
@@ -155,6 +160,7 @@ const SIZE_KEYS = {
   divider: ['width', 'height'],
   image: ['w', 'h'],
   feedimage: ['w', 'h'],
+  carousel: ['w', 'h'],
   linechart: ['w', 'h', 'axisFontSize'],
   gauge: ['w', 'ringWidth'],
   indicator: ['w'],

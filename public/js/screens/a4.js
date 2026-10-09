@@ -32,8 +32,7 @@ function cardHTML(key, selected) {
   const photoHTML = photo
     ? `<span class="photo"><img src="${escapeAttr(photo)}" alt="" loading="lazy" decoding="async"></span>`
     : '<span class="photo">PHOTO</span>';
-  return `<button type="button" class="panel-card card blueprint" data-preset="${escapeAttr(key)}" data-selected="${selected}">
-    <i class="corner tl"></i><i class="corner tr"></i><i class="corner bl"></i><i class="corner br"></i>
+  return `<button type="button" class="panel-card card" data-preset="${escapeAttr(key)}" data-selected="${selected}">
     ${photoHTML}
     <span class="body">
       <span class="name">${escapeHtml(presetCardLabel(key))}</span>

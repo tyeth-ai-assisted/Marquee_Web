@@ -1,0 +1,38 @@
+[
+  {
+    "id": "x-adafruit",
+    "name": "X / Adafruit",
+    "url": "https://x.com/adafruit/status/2107911602292879422",
+    "authorIncludes": "@adafruit",
+    "imageHost": "pbs.twimg.com",
+    "imagePathPrefix": "/media/",
+    "minimumImages": 1
+  },
+  {
+    "id": "bluesky-pimoroni",
+    "name": "Bluesky / Pimoroni",
+    "url": "https://bsky.app/profile/pimoroni.com/post/3mxenyskbe22h",
+    "authorIncludes": "@pimoroni.com",
+    "imageHost": "video.bsky.app",
+    "imagePathPrefix": "/watch/",
+    "minimumImages": 1
+  },
+  {
+    "id": "mastodon-bagder",
+    "name": "Mastodon / bagder",
+    "url": "https://mastodon.social/@bagder/117403995474031993",
+    "authorIncludes": "@bagder",
+    "imageHost": "files.mastodon.social",
+    "imagePathPrefix": "/cache/preview_cards/",
+    "minimumImages": 1
+  },
+  {
+    "id": "mastodon-freediverx",
+    "name": "Mastodon / freediverx",
+    "url": "https://mastodon.social/@freediverx/117405588561786202",
+    "authorIncludes": "@freediverx",
+    "imageHost": "files.mastodon.social",
+    "imagePathPrefix": "/media_attachments/",
+    "minimumImages": 1
+  }
+]
