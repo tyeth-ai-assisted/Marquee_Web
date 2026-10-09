@@ -26,7 +26,8 @@ jobs:
         with:
           # 21+ : the test script relies on node expanding the --test globs itself
           node-version: '24'
-      # No install step: the repo has no runtime or dev dependencies.
+      # Miniflare runs importer tests against the real Worker runtime.
+      - run: npm ci
       - run: npm test
 
   deploy:

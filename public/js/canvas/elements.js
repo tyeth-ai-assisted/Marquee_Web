@@ -16,6 +16,9 @@ import {
   toast, clamp, toNum, fmtDecimals, fmtFeedText, niceTicks, niceStep, snapToStep, fmtTicks, scaleUnit,
 } from '../core/util.js';
 import { normalizeDatetimeAttrs, placeholderText } from '../core/timefmt.js';
+import { normalizeAlbum, captionFor } from '../core/album.js';
+import { createCarouselRuntime } from '../core/carousel-runtime.js';
+import { resolvePhoto } from '../core/album-client.js';
 import { fitRect, FEED_IMAGE_FITS } from '../core/feedimage.js';
 
 let counter = 0;
@@ -29,7 +32,7 @@ export const resetCounter = () => { counter = 0; };
  * fontSize() (a Group has no such method), and through refreshProps into the
  * DIVIDER branch.
  */
-export const WIDGET_TYPES = ['linechart', 'gauge', 'indicator', 'battery', 'feedimage'];
+export const WIDGET_TYPES = ['linechart', 'gauge', 'indicator', 'battery', 'feedimage', 'carousel'];
 export function isWidget(n) { return WIDGET_TYPES.includes(n.getAttr('etype')); }
 
 /**
@@ -71,14 +74,14 @@ export const isDatetime = (n) => n.getAttr('etype') === 'datetime';
  * Smallest authored width per widget, used when baking a transform back into
  * attrs and by the inspector's size inputs. Anything unlisted floors at 40.
  */
-export const MIN_WIDGET_W = { indicator: 6, battery: 20, feedimage: 8 };
+export const MIN_WIDGET_W = { indicator: 6, battery: 20, feedimage: 8, carousel: 8 };
 
 /**
  * The widgets whose HEIGHT is authored too, with its floor. Every other widget derives
  * its height from its width (a gauge is round, a lamp is square), so the transform bake
  * only writes `h` for the etypes listed here.
  */
-export const MIN_WIDGET_H = { linechart: 30, feedimage: 8 };
+export const MIN_WIDGET_H = { linechart: 30, feedimage: 8, carousel: 8 };
 
 export function elementColor(n) { return isWidget(n) ? n.getAttr('ink') : n.fill(); }
 
@@ -113,6 +116,7 @@ const WIDGET_BUILDERS = {
   indicator: buildIndicator,
   battery: buildBattery,
   feedimage: buildFeedImage,
+  carousel: buildFeedImage,
 };
 
 export function rebuildWidget(n) {
@@ -1114,13 +1118,20 @@ function buildFeedImage(g) {
   const h = Math.max(1, Math.round(g.getAttr('h') || 1));
   // Hit area spans the whole frame, so an empty one is still grabbable.
   g.add(new Konva.Rect({ width: w, height: h, fill: '#000', opacity: 0 }));
+  const caption = g.getAttr('etype') === 'carousel' && g.getAttr('showCaption') !== false
+    ? captionFor((g.getAttr('items') || [])[g.getAttr('slideIndex') || 0]) : '';
+  const captionH = caption ? Math.min(24, Math.floor(h / 3)) : 0;
   const img = g.getAttr('imageObj');
   if (img) {
-    const r = fitRect(g.getAttr('natW') || img.width, g.getAttr('natH') || img.height, w, h,
+    const r = fitRect(g.getAttr('natW') || img.width, g.getAttr('natH') || img.height, w, h - captionH,
       g.getAttr('fit') || 'contain');
     const node = new Konva.Image({ image: img, x: r.x, y: r.y, width: r.w, height: r.h });
     if (r.crop) node.crop(r.crop);
     g.add(node);
+    if (captionH) {
+      g.add(new Konva.Rect({x:0,y:h-captionH,width:w,height:captionH,fill:'#fff'}));
+      g.add(new Konva.Text({x:2,y:h-captionH+2,width:w-4,height:captionH-2,text:caption,fontSize:Math.max(6,Math.min(11,captionH-3)),fontFamily:'sans-serif',fill:'#000',ellipsis:true}));
+    }
     return;
   }
   // No picture yet: an outline, so the frame is visible on the canvas — and on the panel,
@@ -1133,7 +1144,7 @@ function buildFeedImage(g) {
   if (w >= 40 && h >= 14) {
     const fontSize = clamp(Math.round(Math.min(w / 8, h / 3)), 7, 14);
     g.add(new Konva.Text({
-      text: g.getAttr('feedKey') ? 'no image yet' : 'IO image', fontSize, fontFamily: 'monospace',
+      text: g.getAttr('etype') === 'carousel' ? 'Photo album' : g.getAttr('feedKey') ? 'no image yet' : 'IO image', fontSize, fontFamily: 'monospace',
       fill: ink, width: w, y: Math.round((h - fontSize) / 2), align: 'center',
     }));
   }
@@ -1278,6 +1289,28 @@ export function feedImageToImage(g) {
   g.destroy();
   return node;
 }
+
+// ---------- carousel -------------------------------------------------------
+export function addCarousel(attrs = {}) {
+  const items = normalizeAlbum(attrs.items || []);
+  const index = Math.max(0, Math.min(items.length - 1, Number.isInteger(attrs.slideIndex) ? attrs.slideIndex : 0));
+  const item = items[index];
+  const g = addFeedImage({ ...attrs, src: attrs.src || item?.src, natW: attrs.natW || item?.natW, natH: attrs.natH || item?.natH, feedKey: '' });
+  g.setAttrs({ etype:'carousel', items, albumName:attrs.albumName || 'Photo album',
+    slideIndex:index, shownAt:attrs.shownAt || Date.now(), interval:Math.max(60,+attrs.interval || 600),
+    paused:!!attrs.paused, order:attrs.order === 'shuffle' ? 'shuffle' : 'sequence',
+    seed:attrs.seed || 1, showCaption:attrs.showCaption !== false });
+  rebuildWidget(g);
+  return g;
+}
+export function carouselToImage(g) {
+  if(!g.getAttr('imageObj'))return null;
+  const w=g.getAttr('w'),h=g.getAttr('h');
+  const image=g.toCanvas({x:g.x(),y:g.y(),width:w,height:h,pixelRatio:1});
+  const node=addImage(image,{x:g.x(),y:g.y(),w,h,src:image.toDataURL('image/png')});
+  node.zIndex(g.zIndex());g.setAttr('feedGen',feedImageGen(g)+1);g.destroy();return node;
+}
+export const refreshCarousel = createCarouselRuntime({resolve:resolvePhoto,decode:decodeImage,apply:applyFeedImage,settle:feedImageSettled,generation:feedImageGen});
 
 // ---------- shared element wiring -------------------------------------------
 

@@ -12,15 +12,19 @@ it remembers lives in your browser's localStorage.
 ## Development
 ### Running Locally
 
-There is nothing to install, this repo has no runtime or dev
-dependencies. 
+The app itself has no runtime dependencies and no build step.
 
 Bring up Marquee Web:
 ```sh
 git clone https://github.com/adafruit/Marquee_Web.git
 cd Marquee_Web
+npm ci     # optional: installs Miniflare so URL photo imports work locally
 npm start
 ```
+
+`npm start` serves `public/` and, when Miniflare is installed, also runs the photo
+importer Worker from `worker/` on the same origin so pasted album and image URLs
+work locally. See [worker/README.md](worker/README.md#run-locally).
 
 ## Bitmap Rendering
 

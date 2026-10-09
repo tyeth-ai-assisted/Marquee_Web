@@ -13,13 +13,14 @@
  * travels with the artwork.
  */
 
+import { normalizeAlbum } from './album.js';
 import { PALETTES, logicalDimsOf } from '../canvas/palette.js';
 
 /** Every etype deserialize() has a factory for. Anything else would silently load as
  *  a label, which is worse than saying so and leaving it out. */
 export const KNOWN_ETYPES = new Set([
   'label', 'divider', 'image', 'linechart', 'gauge', 'indicator', 'battery', 'datetime',
-  'feedimage',
+  'feedimage', 'carousel',
 ]);
 
 const isDataImage = (src) => typeof src === 'string' && src.startsWith('data:image/');
@@ -108,6 +109,10 @@ export function validateCanvasDoc(text) {
       warnings.push(`${at} is a feed image whose picture is not embedded data; the picture was dropped.`);
       el = { ...el, src: null, natW: null, natH: null };
     }
+    if (el.etype === 'carousel') {
+      try { el = {...el, items:normalizeAlbum(el.items)}; if(el.src != null && !isDataImage(el.src))el.src=null; }
+      catch(e) { errors.push(`${at}: ${e.message}`); return; }
+    }
     elements.push(el);
   });
   if (errors.length) return { ok: false, errors, warnings, doc: null };
@@ -144,6 +149,7 @@ const SIZE_KEYS = {
   divider: ['width', 'height'],
   image: ['w', 'h'],
   feedimage: ['w', 'h'],
+  carousel: ['w', 'h'],
   linechart: ['w', 'h', 'axisFontSize'],
   gauge: ['w', 'ringWidth'],
   indicator: ['w'],

@@ -1098,3 +1098,16 @@
    device tiles. Ground is the warm paper, never the UI ground. */
 
 .thumb { background: var(--panel-thumb); border: 1px solid var(--color-divider); }
+
+/* Album builder: usable on narrow screens and with keyboard ordering. */
+.album-modal { width:min(960px, 95vw); max-height:90vh; overflow:auto; }
+.album-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(min(220px,100%),1fr)); gap:12px; }
+.album-item { border:1px solid var(--line, #aaa); padding:10px; min-width:0; }
+.album-item label { display:block; margin:6px 0; }
+.album-item input:not([type=checkbox]) { width:100%; box-sizing:border-box; }
+.album-item img { width:100%; height:120px; object-fit:contain; }
+.album-item button[data-action=enlarge] { width:100%; border:0; background:transparent; }
+.album-modal textarea { width:100%; box-sizing:border-box; }
+.album-modal .prop-row, .album-modal .modal-actions { flex-wrap:wrap; }
+#albumEnlarge { max-width:95vw; max-height:90vh; }
+#albumEnlarge img { display:block; max-width:85vw; max-height:75vh; object-fit:contain; }
