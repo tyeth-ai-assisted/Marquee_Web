@@ -125,6 +125,18 @@ test('a picture is dithered on its own, by its own setting or the display defaul
   assert.equal(ownNone.sha, panelNone.sha);
 });
 
+test('the bitmap fonts draw on the server, from the same glyph tables as the editor', async () => {
+  const label = (fontFamily) => scene([{ etype: 'label', x: 4, y: 4, text: '21.5', fontSize: 6, fontFamily, fill: INK }]);
+  const blank = await render({ doc: scene([]), display });
+  const thumb = await render({ doc: label('tom-thumb'), display });
+  const gfx = await render({ doc: label('gfx-5x7'), display });
+  const plex = await render({ doc: label('IBM Plex Mono'), display });
+  assert.notEqual(thumb.sha, blank.sha);
+  assert.notEqual(thumb.sha, gfx.sha);
+  assert.notEqual(thumb.sha, plex.sha);
+  assert.equal((await render({ doc: label('tom-thumb'), display })).sha, thumb.sha);
+});
+
 test('the display decides the palette: mono comes out 1 bit per pixel', async () => {
   const out = await render({ doc: EVERYTHING, display: { ...display, type: 'mono' }, now: NOON });
   assert.equal(header(out.base64).bpp, 1);
