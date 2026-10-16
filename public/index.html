@@ -462,6 +462,16 @@
           <span class="caret" aria-hidden="true">▾</span>
         </button>
 
+        <!-- Live updates for this display: whether the editor keeps re-reading the feeds
+             and refreshing the panel on the board's own cycle (the live take, device.js).
+             Indicator and switch in one. It sits beside the sleep chip because the two
+             together are what the board will do next. Manual push is unaffected. -->
+        <button type="button" class="btn sleep-chip live-chip" id="liveChip" aria-pressed="true"
+                title="Live updates: while this tab is open, the editor re-reads the feeds and refreshes the panel on each of the board's wakes. Pause to keep the panel on what was last pushed.">
+          <span class="cap">Live</span>
+          <span class="value" id="liveChipValue">▶ On</span>
+        </button>
+
         <!-- Hidden at rest, and absent from the tab order with it. Anchored to the
              bar's left padding rather than to the chip, so it does not walk sideways
              as the value inside the chip changes length. -->

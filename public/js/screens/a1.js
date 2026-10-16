@@ -39,7 +39,8 @@ import { deviceEntry, navigate, currentScreen } from '../core/router.js';
 import { DISPLAY_PRESETS, presetCardPhoto } from '../lib/presets.js';
 import { readPanelCache, writePanelCache } from './a8.js';
 import * as devices from '../device/devices.js';
-import { $, val, escapeHtml, escapeAttr, fmtAgo, fmtLocalTime, fmtLocalDateTime, toast } from '../core/util.js';
+import { $, val, escapeHtml, escapeAttr, fmtAgo, fmtLocalTime, fmtLocalDateTime, fmtInterval, toast } from '../core/util.js';
+import { sleepModeFor } from '../core/config.js';
 
 /**
  * What a tile can say about a device without activating it.
@@ -60,7 +61,22 @@ function tileFacts(rec) {
     hardware: preset?.spec || 'Panel set up by hand',
     phase: reading.phase,
     when: whenLine(reading, rec),
+    schedule: scheduleLine(rec),
   };
+}
+
+/**
+ * What the display is set to do between draws, from its own record, e.g. "Sleeps 15
+ * minutes · deep sleep · live updates paused". Read-only and from nothing but the record:
+ * the sleep interval the editor last pushed for it, and the Live switch on Build the
+ * Scene. Changing either is done there, on the display itself.
+ */
+function scheduleLine(rec) {
+  const secs = Math.max(0, parseInt(rec.settings?.sleepDuration, 10) || 0);
+  const parts = [];
+  if (secs) parts.push(`Sleeps ${fmtInterval(secs)}`, `${sleepModeFor(secs)} sleep`);
+  if (devices.livePaused(rec)) parts.push('live updates paused');
+  return parts.join(' · ');
 }
 
 /** This display's bitmap feed, derived from its own record — no activation involved. */
@@ -123,6 +139,7 @@ function deviceTileHTML(rec) {
       <span class="row">${pillHTML(f)}<span class="when">${escapeHtml(f.when)}</span></span>
       <span class="name">${escapeHtml(f.label)}</span>
       <span class="hardware">${escapeHtml(f.hardware)}</span>
+      ${f.schedule ? `<span class="hardware schedule">${escapeHtml(f.schedule)}</span>` : ''}
     </span>
     <span class="card-actions">
       <button type="button" class="btn btn-sm btn-ghost" data-firmware="${escapeAttr(rec.id)}"

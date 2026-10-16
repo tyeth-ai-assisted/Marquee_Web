@@ -152,7 +152,7 @@ feed, because the sleep window belongs to the sleep already running.
 | floor | `LIVE_MIN_GAP_MS` (30s) between publishes, whatever asked for one |
 | de-dupe | the base64 BMP, byte for byte — an unchanged picture is never republished |
 | cost | one read per bound element (one per series on a chart), plus at most one publish |
-| off switch | none — every display bound to a feed stays live |
+| off switch | the **Live** chip on Build the Scene, per display (`settings.livePaused` on its record). Paused, `liveBlockedBecause()` skips every take; resumed, the take re-arms on the board's next `sleeping`, at once if it is asleep now, or on the estimated cycle for a board that does not report. Manual push is unaffected. Display tiles show `live updates paused` |
 
 **Why `sleeping` and not `awake`.** The report means the alarm is armed, so the whole window
 is available and nothing is racing a fetch. It is also the only moment the promotion

@@ -1142,3 +1142,7 @@
    device tiles. Ground is the warm paper, never the UI ground. */
 
 .thumb { background: var(--panel-thumb); border: 1px solid var(--color-divider); }
+
+/* The Live chip shares the sleep chip's shape. Paused reads as a state worth noticing,
+   not as a fault: the value dims rather than turning red. */
+.live-chip.paused .value { opacity: 0.6; }

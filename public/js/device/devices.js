@@ -168,6 +168,34 @@ export function patchActive(patch) {
  * record a setupStep — nothing would ever clear it, and every open of the display
  * would land back on that screen instead of the editor.
  */
+/**
+ * Patch one record's settings, active or not.
+ *
+ * For a field with a DOM home (DEVICE_FIELDS) on the ACTIVE record this is not enough on
+ * its own: flushActive() reads those back off the form and would put the old value back.
+ * Fields with no DOM home, like `livePaused`, live here only, and flushActive() merges
+ * rather than replaces, so they survive it.
+ */
+export function patchSettings(id, patch) {
+  const rec = env.byId[id];
+  if (!rec) return null;
+  rec.settings = { ...rec.settings, ...patch };
+  touch(rec);
+  persist();
+  return rec;
+}
+
+/**
+ * Are this display's live updates paused (the switch on Build the Scene)?
+ *
+ * Stored on the record rather than in the settings form: it is a switch on the editor's
+ * own behaviour, not a value the board or its config file ever sees. Absent means live,
+ * so every record written before the switch existed keeps the behaviour it had.
+ */
+export function livePaused(rec) {
+  return rec?.settings?.livePaused === true;
+}
+
 export function isFinished(rec) {
   return rec?.status === 'ready' && !rec.setupStep;
 }

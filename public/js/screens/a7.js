@@ -18,6 +18,8 @@ import { refreshFeedElements } from '../device/feeds.js';
 import { refreshInterval, sleepModeFor } from '../core/config.js';
 import { getState, subscribe } from '../core/state.js';
 import { $, $$, show, fmtInterval, toast } from '../core/util.js';
+import { activeDevice, activeDeviceId, livePaused, patchSettings } from '../device/devices.js';
+import { syncLiveUpdates } from '../device/device.js';
 
 /**
  * Options offered by "Wake and redraw", in seconds. Must match the option values
@@ -139,6 +141,29 @@ function syncSleepChip() {
   const el = $('sleepChipValue');
   if (!el) return;
   el.textContent = `Timer · ${intervalPhrase(refreshInterval())}`;
+}
+
+// ---------- live updates ------------------------------------------------------
+
+/** The Live chip, from the active record: ▶ while the live take runs, ❚❚ while paused. */
+function syncLiveChip() {
+  const chip = $('liveChip');
+  if (!chip) return;
+  const paused = livePaused(activeDevice());
+  chip.setAttribute('aria-pressed', String(!paused));
+  chip.classList.toggle('paused', paused);
+  $('liveChipValue').textContent = paused ? '❚❚ Paused' : '▶ On';
+}
+
+function toggleLive() {
+  const id = activeDeviceId();
+  if (!id) return;
+  const paused = !livePaused(activeDevice());
+  patchSettings(id, { livePaused: paused });
+  syncLiveUpdates();
+  syncLiveChip();
+  toast(paused ? 'Live updates paused: the panel keeps what was last pushed'
+               : 'Live updates on: the panel refreshes on the board\'s next wake');
 }
 
 // ---------- rotation ----------------------------------------------------------
@@ -312,6 +337,8 @@ export function initA7({ onEnter }) {
   syncPushBlock();
   syncSleepChip();
   syncSceneRot();
+  syncLiveChip();
+  $('liveChip')?.addEventListener('click', toggleLive);
 
   // The board can fall asleep while this screen is still open — a cycle started
   // here never leaves it — so the push block follows the device rather than only
@@ -331,5 +358,8 @@ export function initA7({ onEnter }) {
     syncIntervalFromField();
     syncPushBlock();
     syncSceneRot();
+    // Per display, so a device switch (which always comes back through here) shows the
+    // new display's switch.
+    syncLiveChip();
   });
 }

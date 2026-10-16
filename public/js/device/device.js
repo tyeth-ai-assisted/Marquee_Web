@@ -28,6 +28,7 @@ import {
   getQueued, setQueued, clearQueued, subscribe,
 } from '../core/state.js';
 import { syncPushBlock } from '../screens/a7.js';
+import { activeDevice, livePaused } from './devices.js';
 import { Konva } from '../canvas/konva.js';
 import { $, val, toast, fmtLocalSeconds } from '../core/util.js';
 
@@ -906,6 +907,9 @@ function liveBlockedBecause() {
   if (!st.lastWriteAt && !getQueued() && !getPublished().doc) {
     return 'nothing has been pushed to this display yet';
   }
+  // The switch on Build the Scene. After the consent guard, so the trail still says when
+  // there was never anything to pause.
+  if (livePaused(activeDevice())) return 'live updates are paused for this display';
   if (!hasFeedBindings()) return 'nothing on this canvas is bound to a feed';
   // renderBitmap() photographs the stage through captureClean(), which deselects, drops
   // the zoom to 1:1 and puts both back — and select(null) rebuilds the inspector by
@@ -1046,6 +1050,32 @@ function armLiveFallback() {
 function noteBitmapOnFeed(bmp) {
   lastPublishedBmp = bmp;
   lastLiveAt = Date.now();
+}
+
+/**
+ * The active display's live updates were switched on or off on Build the Scene.
+ *
+ * Off needs nothing but the timer cleared: liveBlockedBecause() refuses every take while
+ * the flag is set, and a take already rendering finishes rather than being torn down. On
+ * has to put a trigger back, because a skipped take re-arms nothing (see takeLiveTake):
+ *
+ *   board reports    wait for its next `sleeping`, the moment this section is built
+ *                    around, unless it is asleep RIGHT NOW, in which case the window is
+ *                    already ours and waiting would cost a whole cycle of stale numbers.
+ *   board does not   the estimated cycle, exactly as at boot.
+ */
+export function syncLiveUpdates() {
+  if (livePaused(activeDevice())) {
+    clearTimeout(liveTimer);
+    liveTimer = null;
+    liveAgain = false;
+    liveLog('paused on Build the Scene');
+    return;
+  }
+  if (!boardReportsState()) { armLiveFallback(); return; }
+  if (getState().deviceState === 'asleep' && !takeInFlight()) {
+    armLiveTake(LIVE_SETTLE_MS, 'live updates resumed while the board sleeps');
+  }
 }
 
 /** Forget this board's take. A different display has a different panel on a different
