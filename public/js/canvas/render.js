@@ -1,11 +1,12 @@
 /**
  * The render pipeline.
  *
- * The editor captures the canvas at exactly 1:1 and dithers + palette-remaps it
- * right here, in the browser, with bitmap.js — a pure-JS port of the ImageMagick
- * pipeline this app used to shell out to, byte-identical to what `magick` produced
- * (see test/bitmap.test.js). There is no server: the same bytes go to the preview,
- * the export and the panel.
+ * The editor captures the canvas at exactly 1:1, with each picture already dithered on
+ * its own (lib/imagedither.js), and palette-remaps it right here, in the browser, with
+ * bitmap.js — a pure-JS port of the ImageMagick pipeline this app used to shell out to,
+ * byte-identical to what `magick` produced (see test/bitmap.test.js). The same bytes go
+ * to the preview, the export and the panel, and lib/render.js renders a document the
+ * same way on a server.
  */
 
 import { ioHost, ioLog, bitmapFeedKey, IO_MAX_NO_HISTORY } from '../core/api.js';
@@ -37,6 +38,7 @@ export function renderBitmap() {
   const canvas = captureClean({
     onDeselect: () => select(null),
     onReselect: () => { if (prev) select(prev); },
+    ditherImages: true,
   });
   const w = canvas.width, h = canvas.height;
   const rgba = canvas.getContext('2d').getImageData(0, 0, w, h).data;

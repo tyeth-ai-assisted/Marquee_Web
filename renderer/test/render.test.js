@@ -8,7 +8,7 @@
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { FontLibrary } from 'skia-canvas';
+import { FontLibrary, Canvas } from 'skia-canvas';
 
 import { render, atTime, plan, MAX_SIDE } from '../render.js';
 import { handler } from '../lambda.js';
@@ -96,6 +96,33 @@ test('a feed image draws the picture read from its feed, and its placeholder wit
   // The reference is never fetched, whatever it says.
   const hostile = scene([{ etype: 'feedimage', x: 0, y: 0, w: 40, h: 40, feedKey: '', src: 'http://169.254.169.254/' }]);
   assert.equal((await render({ doc: hostile, display })).sha, empty.sha);
+});
+
+test('only pictures are dithered: text renders the same under every display dither', async () => {
+  const text = scene([{ etype: 'label', x: 4, y: 4, text: 'Crisp text', fontSize: 20, fontFamily: 'IBM Plex Sans', fill: INK }]);
+  const shas = new Set();
+  for (const dither of ['FloydSteinberg', 'ordered', 'none']) {
+    shas.add((await render({ doc: text, display: { ...display, dither, diffusion: 85, orderedMap: 8 } })).sha);
+  }
+  assert.equal(shas.size, 1);
+});
+
+test('a picture is dithered on its own, by its own setting or the display default', async () => {
+  const c = new Canvas(32, 32);
+  const g = c.getContext('2d');
+  const grad = g.createLinearGradient(0, 0, 32, 0);
+  grad.addColorStop(0, '#000000');
+  grad.addColorStop(1, '#ffffff');
+  g.fillStyle = grad;
+  g.fillRect(0, 0, 32, 32);
+  const src = await c.toDataURL('png');
+  const pic = (extra) => scene([{ etype: 'image', x: 0, y: 0, w: 64, h: 64, natW: 32, natH: 32, src, ...extra }]);
+  const fs = { ...display, dither: 'FloydSteinberg', diffusion: 85 };
+  const byDefault = await render({ doc: pic({}), display: fs });
+  const ownNone = await render({ doc: pic({ dither: 'none' }), display: fs });
+  const panelNone = await render({ doc: pic({}), display: { ...display, dither: 'none' } });
+  assert.notEqual(byDefault.sha, ownNone.sha, "the picture's own setting wins over the display's");
+  assert.equal(ownNone.sha, panelNone.sha);
 });
 
 test('the display decides the palette: mono comes out 1 bit per pixel', async () => {

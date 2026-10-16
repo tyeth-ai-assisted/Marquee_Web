@@ -67,11 +67,15 @@ function randTemp() { return Math.round(45 + Math.random() * 45); }
 
 // ---------- widget dispatch -------------------------------------------------
 
+/** The widgets drawn relative to the page colour (see stage.js#syncDisplayBackground). */
+export const PAGE_RELATIVE = new Set(['feedimage', 'gauge', 'linechart']);
+
 export function rebuildWidget(n) {
-  // A feed image picks its placeholder colours against the page. It is handed the live
-  // descriptor on every rebuild, because clone() (Duplicate) deep-copies plain-object
-  // attrs and would otherwise leave the copy reading a snapshot of the page.
-  if (n.getAttr('etype') === 'feedimage') n.setAttr('display', display);
+  // A feed image picks its placeholder colours against the page, and a gauge or a chart
+  // its faint parts. Each is handed the live descriptor on every rebuild, because clone()
+  // (Duplicate) deep-copies plain-object attrs and would otherwise leave the copy reading
+  // a snapshot of the page.
+  if (PAGE_RELATIVE.has(n.getAttr('etype'))) n.setAttr('display', display);
   if (!scene.rebuildWidget(Konva, n)) return;
   if (tr.nodes().includes(n)) tr.forceUpdate();
 }
@@ -350,6 +354,8 @@ export function addFeedImage(attrs = {}) {
 export function imageToFeedImage(node, attrs = {}) {
   const g = addFeedImage({
     x: node.x(), y: node.y(), w: Math.round(node.width()), h: Math.round(node.height()),
+    // Its own dither, if it had one, comes with it.
+    dither: node.getAttr('dither'), diffusion: node.getAttr('diffusion'),
     ...attrs,
   });
   g.zIndex(node.zIndex());

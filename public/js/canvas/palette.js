@@ -96,9 +96,11 @@ export function panelRefreshSeconds() {
 
 /** Human-readable summary of the active dither method + its parameter. */
 export function ditherLabel() {
-  if (display.dither === 'none') return 'no dither';
-  if (display.dither === 'ordered') return `ordered o${display.orderedMap}×${display.orderedMap}`;
-  return `Floyd–Steinberg ${display.diffusion}%`;
+  // Only pictures are dithered (lib/imagedither.js), so the line says so rather than
+  // implying the whole panel is.
+  if (display.dither === 'none') return 'pictures not dithered';
+  if (display.dither === 'ordered') return `pictures ordered o${display.orderedMap}×${display.orderedMap}`;
+  return `pictures Floyd–Steinberg ${display.diffusion}%`;
 }
 
 /**

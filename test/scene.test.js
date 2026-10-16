@@ -230,3 +230,14 @@ test('feedimage: an unsized frame is a third of the panel, centred', () => {
   assert.deepEqual([node.getAttr('w'), node.getAttr('h')], [99, 74]);
   assert.deepEqual([node.x(), node.y()], [Math.round((296 - 99) / 2), Math.round((128 - 74) / 2)]);
 });
+
+test('faint parts are a real shade where the panel has one, whole ink pixels where it does not', () => {
+  const track = (d) => createElement(Konva, { etype: 'gauge', x: 0, y: 0, w: 80, ink: INK, gaugeValue: '10', min: 0, max: 100 }, d)
+    .getChildren().find((c) => c.getClassName() === 'Arc');
+  const mono = track({ ...display, type: 'mono', background: '#FFFFFF' });
+  assert.ok(mono.fillPatternImage(), 'mono has no grey, so the track is a stipple of ink');
+  assert.equal(mono.opacity(), 1, 'never part opacity, which would snap to paper');
+  const grey = track({ ...display, type: 'gray4', background: '#FFFFFF' });
+  assert.equal(grey.fill(), '#B1AFAD', 'the light grey on 4 greys');
+  assert.equal(grey.fillPatternImage(), undefined);
+});
