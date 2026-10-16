@@ -94,7 +94,7 @@ refreshes the time when a new image is pushed.
 | `timeTz` | a tz database name, or `""` for the timezone of the browser doing the push |
 | `timeValue` | the string IO last returned; `null` before the first read. A **sample** (see `lib/samples.js`), so a new time is not a design change. |
 | `fill`, `fontSize`, `fontFamily`, `align` | as on a label |
-| `fontFamily` | one of the bundled faces in `lib/fonts.js`: `IBM Plex Mono`, `IBM Plex Sans`, `IBM Plex Serif`. A document saved before they were bundled says `monospace`, `sans-serif` or `serif`, and loads as the matching Plex face |
+| `fontFamily` | one of the fonts in `lib/fonts.js`: `IBM Plex Mono`, `IBM Plex Sans`, `IBM Plex Serif`, or a bitmap font, `tom-thumb` (Tom Thumb 3×5) or `gfx-5x7` (Adafruit GFX 5×7), drawn in whole multiples of its 6 or 8 px line (`lib/pixelfont.js`). A document saved before the Plex faces were bundled says `monospace`, `sans-serif` or `serif`, and loads as the matching Plex face |
 | `width` | present only when the box width is set; absent means the box auto-sizes to the text |
 
 `text` is not saved: it is `timeValue`, or the preset's example before the first read.

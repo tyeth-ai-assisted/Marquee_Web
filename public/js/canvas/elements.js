@@ -16,6 +16,7 @@ import { select, refreshProps } from './selection.js';
 import { onFontsReady } from './icons.js';
 import { toast, clamp } from '../core/util.js';
 import * as scene from '../lib/scene.js';
+import { cssFamily } from '../lib/pixelfont.js';
 import {
   isWidget, feedValueAttr, isFeedLinked, isDatetime, linkedLabelText, datetimeText, TEXT_PAD_MAX,
 } from '../lib/scene.js';
@@ -451,7 +452,8 @@ export function editLabel(node) {
     height: (node.height() + 6) * zoom + 'px',
     minHeight: '0',
     fontSize: node.fontSize() * zoom + 'px',
-    fontFamily: node.fontFamily(),
+    // A bitmap font has no CSS face; the textarea shows its text in the bundled mono.
+    fontFamily: cssFamily(node.fontFamily()),
     lineHeight: String(node.lineHeight()),
     textAlign: node.align(),
     color: node.fill(),

@@ -24,6 +24,32 @@ import { listTimezones } from '../device/iotime.js';
 import { TIME_PRESETS, presetForFmt } from '../lib/timefmt.js';
 import { GAUGE_ICONS, FA_LINK } from './icons.js';
 import { FONTS } from '../lib/fonts.js';
+import { fontAdvice } from '../lib/pixelfont.js';
+
+/**
+ * The font menu's options. Each names the size it is useful at in brackets, so the menu
+ * says what picking it means: the Plex faces from 8 px, the bitmap fonts in whole steps
+ * of their line (lib/pixelfont.js). What the menu says is what draws.
+ */
+function fontOptionsHTML(current) {
+  return FONTS.map(({ family, label, note }) =>
+    `<option value="${family}"${current === family ? ' selected' : ''}>${escapeHtml(label)}${note ? ` (${escapeHtml(note)})` : ''}</option>`).join('');
+}
+
+/**
+ * Show fontAdvice() for `family` at `size` in the hint element `id`. `warnOnly` keeps
+ * just the red warning (an outline font too small to draw cleanly), for the chart,
+ * whose step notes would be about sizes it derives for itself.
+ */
+function showFontAdvice(id, family, size, warnOnly = false) {
+  const el = $(id);
+  if (!el) return;
+  const a = fontAdvice(family, size);
+  const show = !!a && (!warnOnly || a.level === 'warn');
+  el.hidden = !show;
+  el.textContent = show ? a.text : '';
+  el.classList.toggle('hint-warn', show && a.level === 'warn');
+}
 import { Z_OPS, restack, canRestack, stackPosition } from '../lib/zorder.js';
 import { $, escapeHtml, escapeAttr, toast, clamp } from '../core/util.js';
 
@@ -198,10 +224,9 @@ function textStyleRowsHTML(n) {
   return `
     <div class="prop-row">
       <span class="label">Size</span><input type="number" id="pSize" value="${n.fontSize()}" min="4" max="512">
-      <select id="pFont" style="flex:1">${FONTS.map(({ family, label }) =>
-        `<option value="${family}"${n.fontFamily() === family ? ' selected' : ''}>${label}</option>`).join('')}
-      </select>
+      <select id="pFont" style="flex:1">${fontOptionsHTML(n.fontFamily())}</select>
     </div>
+    <p class="hint" id="pFontAdvice" hidden></p>
     <div class="prop-row">
       <span class="label">Box</span><input type="number" id="pBoxW" min="8"
         value="${n.attrs.width !== undefined ? Math.round(n.width()) : ''}" placeholder="auto">
@@ -454,10 +479,10 @@ export function refreshProps() {
       <div class="prop-row">
         <span class="label">Chart text</span>
         <input type="number" id="pChFontSize" aria-label="Chart text size" value="${n.getAttr('axisFontSize') ?? 7}" min="${CHART_FONT_MIN}" max="${CHART_FONT_MAX}">
-        <select id="pChFont" aria-label="Chart font family" style="flex:1">${FONTS.map(({ family, label }) =>
-          `<option value="${family}"${n.getAttr('axisFontFamily') === family ? ' selected' : ''}>${label}</option>`).join('')}</select>
+        <select id="pChFont" aria-label="Chart font family" style="flex:1">${fontOptionsHTML(n.getAttr('axisFontFamily'))}</select>
       </div>
       <p class="hint" id="pChFontFit"></p>
+      <p class="hint" id="pChFontAdvice" hidden></p>
       <div class="prop-grid">
         <label class="field"><span class="label">Y minimum</span>
           <input type="number" id="pChYMin" value="${escapeAttr(String(n.getAttr('yMin') ?? ''))}" placeholder="auto"></label>
@@ -582,8 +607,12 @@ export function refreshProps() {
   // the context menu or an autofill would still fire `input` and overwrite text the
   // next feed read is about to replace anyway.
   bind('pText', (e) => { if (!isFeedLinked(n)) n.text(e.target.value); });
-  bind('pSize', (e) => n.fontSize(Math.max(4, +e.target.value || 4)));
-  bind('pFont', (e) => n.fontFamily(e.target.value));
+  // The advice under the size touches one element, so the per-keystroke size field can
+  // refresh it without losing focus.
+  const textFontAdvice = () => showFontAdvice('pFontAdvice', n.fontFamily(), n.fontSize());
+  if (etype === 'label' || etype === 'datetime') textFontAdvice();
+  bind('pSize', (e) => { n.fontSize(Math.max(4, +e.target.value || 4)); textFontAdvice(); });
+  bind('pFont', (e) => { n.fontFamily(e.target.value); textFontAdvice(); });
   bind('pBoxW', (e) => {
     const v = +e.target.value;
     n.setAttr('width', v >= 8 ? Math.round(v) : undefined); // blank = auto-size to text
@@ -756,6 +785,9 @@ export function refreshProps() {
     hint.textContent = fit < asked
       ? `Drawn at ${fit}px — ${asked}px doesn't fit this chart's height. Make it taller for more.` : '';
     hint.hidden = !(fit < asked);
+    // Judged on the tick numbers, the smallest text the chart draws, at the size they
+    // were actually drawn (axisTickFit).
+    showFontAdvice('pChFontAdvice', n.getAttr('axisFontFamily'), n.getAttr('axisTickFit') ?? asked, true);
   };
   if (etype === 'linechart') showFontFit();
   bind('pChFontSize', setChart('axisFontSize', (v) => clamp(Math.round(+v) || 7, CHART_FONT_MIN, CHART_FONT_MAX)));
