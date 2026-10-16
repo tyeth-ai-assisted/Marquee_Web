@@ -10,7 +10,7 @@
  * editor's (canvas/elements.js).
  */
 
-import { PAPER, PALETTES, isHexColor, logicalDimsOf, paletteBackground, hexToRGB } from './palette.js';
+import { PAPER, PALETTES, isHexColor, logicalDimsOf, paletteBackground, hexToRGB, nearestColor } from './palette.js';
 import {
   clamp, toNum, fmtDecimals, fmtFeedText, niceTicks, niceStep, snapToStep, fmtTicks, scaleUnit,
 } from './format.js';
@@ -126,6 +126,74 @@ function applyTextBox(node, attrs) {
 /** The text a datetime shows: IO's last answer, or its preset's example before one. */
 export function datetimeText(n) {
   return n.getAttr('timeValue') ?? placeholderText(n.getAttr('timeFmt'));
+}
+
+// ---------- faint ink -------------------------------------------------------
+//
+// A few things are drawn at part strength so they read as background: a gauge's empty
+// track, a chart's grid. Only pictures are dithered (imagedither.js), and a part-strength
+// ink snapped to the nearest panel colour is just paper. So each is drawn as something
+// the panel can show: a real in-between shade where the palette has one (4 greys), and
+// otherwise a sparse pattern of whole ink pixels.
+//
+// Both depend on the page, which a widget reads from its `display` attr: the descriptor
+// it was created with, kept on the node and never saved (the editor hands it the live
+// one on every rebuild, and redraws gauges and charts when the page colour changes).
+
+/** The page colour and palette a widget is drawn against. */
+function pageOf(g) {
+  const d = g.getAttr('display') || {};
+  const type = PALETTES[d.type] ? d.type : 'mono';
+  return { type, bg: paletteBackground(d.background ?? PAPER, type) };
+}
+
+/** `ink` at `alpha` over the page, as a hex colour. */
+function blendOnPage(ink, alpha, bg) {
+  const a = hexToRGB(ink), b = hexToRGB(bg);
+  return '#' + a.map((v, i) => Math.round(v * alpha + b[i] * (1 - alpha)).toString(16).padStart(2, '0')).join('');
+}
+
+/** The palette shade a part-strength `ink` reads as, or null when none sits between it and the page. */
+function faintShade(g, ink, alpha) {
+  const { type, bg } = pageOf(g);
+  const shade = nearestColor(blendOnPage(ink, alpha, bg), PALETTES[type]);
+  return shade !== bg && shade !== ink ? shade : null;
+}
+
+const stipples = new Map();
+/** A 2×2 tile with 1, 2 or 3 ink pixels, the nearest to `alpha` of the page covered. */
+function stipple(Konva, ink, alpha) {
+  const n = alpha <= 0.375 ? 1 : alpha <= 0.625 ? 2 : 3;
+  const key = `${ink}|${n}`;
+  if (!stipples.has(key)) {
+    const c = Konva.Util.createCanvasElement();
+    c.width = 2; c.height = 2;
+    const ctx = c.getContext('2d');
+    ctx.fillStyle = ink;
+    [[0, 0], [1, 1], [1, 0]].slice(0, n).forEach(([x, y]) => ctx.fillRect(x, y, 1, 1));
+    stipples.set(key, c);
+  }
+  return stipples.get(key);
+}
+
+/**
+ * Fill attrs for a shape drawn at part strength. `origin` is where the shape's own
+ * coordinates start inside its group, so the pattern can be shifted onto whole panel
+ * pixels when that is a half-pixel (a gauge's centre, say).
+ */
+function faintFill(Konva, g, ink, alpha, origin = { x: 0, y: 0 }) {
+  const shade = faintShade(g, ink, alpha);
+  if (shade) return { fill: shade };
+  return {
+    fillPatternImage: stipple(Konva, ink, alpha), fillPatternRepeat: 'repeat',
+    fillPatternX: -(origin.x - Math.floor(origin.x)), fillPatternY: -(origin.y - Math.floor(origin.y)),
+  };
+}
+
+/** Stroke attrs for a 1px line at part strength: the shade, or ink dashed one pixel in three. */
+function faintStroke(g, ink, alpha) {
+  const shade = faintShade(g, ink, alpha);
+  return shade ? { stroke: shade } : { stroke: ink, dash: [1, 2] };
 }
 
 // ---------- line chart ------------------------------------------------------
@@ -389,7 +457,7 @@ function buildLineChart(Konva, g) {
     const y = Math.round(py(t)) + 0.5;
     g.add(new Konva.Line({
       points: [plot.x, y, showGrid ? plot.x + plot.w : plot.x + 3, y],
-      stroke: ink, strokeWidth: 1, opacity: showGrid ? 0.35 : 1,
+      strokeWidth: 1, ...(showGrid ? faintStroke(g, ink, 0.35) : { stroke: ink }),
     }));
     g.add(new Konva.Text({
       text: tickLabels[i], fontSize: tickFont, fontFamily: axisFamily, fill: ink,
@@ -404,7 +472,7 @@ function buildLineChart(Konva, g) {
     for (let c = 1; c < cols; c++) {
       const x = Math.round(plot.x + (c / cols) * plot.w) + 0.5;
       g.add(new Konva.Line({
-        points: [x, plot.y, x, plot.y + plot.h], stroke: ink, strokeWidth: 1, opacity: 0.35,
+        points: [x, plot.y, x, plot.y + plot.h], strokeWidth: 1, ...faintStroke(g, ink, 0.35),
       }));
     }
   }
@@ -590,9 +658,9 @@ function buildGauge(Konva, g) {
   const arc = { x: cx, y: cy, innerRadius: r - thickness, outerRadius: r, rotation: GAUGE_START };
 
   // The empty track is drawn faintly rather than omitted: without it, a low reading
-  // gives no clue how much scale is left, and on a mono panel opacity is the only
-  // way to say "this part is the background".
-  g.add(new Konva.Arc({ ...arc, angle: GAUGE_SWEEP, fill: ink, opacity: 0.25 }));
+  // gives no clue how much scale is left. On a mono panel a stipple of ink is the only
+  // way to say "this part is the background" (see faintFill).
+  g.add(new Konva.Arc({ ...arc, angle: GAUGE_SWEEP, ...faintFill(Konva, g, ink, 0.25, { x: cx, y: cy }) }));
   if (frac !== null && frac > 0) {
     g.add(new Konva.Arc({ ...arc, angle: GAUGE_SWEEP * frac, fill: valueInk }));
   }
@@ -934,6 +1002,7 @@ export function createLineChart(Konva, attrs = {}, display, nodeProps = {}) {
   const g = widgetGroup(Konva, attrs, nodeProps);
   const ink = inkOf(display);
   g.setAttr('etype', 'linechart');
+  g.setAttr('display', display);   // the page its faint grid is drawn against; never saved
   g.setAttr('w', attrs.w ?? 120);
   g.setAttr('h', attrs.h ?? 60);
   g.setAttr('ink', attrs.ink ?? ink);
@@ -976,6 +1045,7 @@ export function createGauge(Konva, attrs = {}, display, nodeProps = {}) {
   const g = widgetGroup(Konva, attrs, nodeProps);
   const ink = attrs.ink ?? inkOf(display);
   g.setAttr('etype', 'gauge');
+  g.setAttr('display', display);   // the page its faint track is drawn against; never saved
   g.setAttr('w', attrs.w ?? 90);
   g.setAttr('ink', ink);
   g.setAttr('title', attrs.title ?? '');
