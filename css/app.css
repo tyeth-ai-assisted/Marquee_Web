@@ -1,0 +1,1150 @@
+/* ============================================================================
+   Marquee — application layout.
+
+   Screen-by-screen structure for A1–A8. Built on base.css primitives and the
+   tokens in tokens.css; no literal colors below except where a rule describes
+   physical hardware (the panel glass, the device shell), and those come from the
+   PANEL group of tokens.css.
+
+   Every screen lives in the DOM at once and is shown/hidden by the router. That
+   is load-bearing, not laziness: the Konva stage mounts into A7 exactly once and
+   must never be torn down, and the display descriptor fields in the Settings
+   modal are read by the device pipeline from every screen. See js/router.js.
+   ========================================================================== */
+
+/* ---- app shell ----------------------------------------------------------- */
+
+#app {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+}
+
+.chrome {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  height: var(--chrome-h);
+  flex: none;
+  padding: 0 18px;
+  background: var(--color-chrome);
+  color: var(--color-chrome-text);
+}
+.chrome .crumb {
+  font-family: var(--font-heading);
+  font-weight: var(--font-heading-weight);
+  font-size: 17px;
+  letter-spacing: 0.02em;
+}
+.chrome .crumb-current { color: var(--color-accent-300); }
+.chrome .sep { opacity: 0.4; }
+/* The way back to the device list. A link rather than a button shape: it sits in a
+   trail of crumbs and is the same KIND of move as one. It kept that shape after the
+   Settings button it used to sit opposite was removed: a bordered button alone in the
+   chrome would read as the bar's primary action, which navigating back is not. */
+.chrome-link {
+  flex: none;
+  border: 0;
+  background: none;
+  padding: 0 4px;
+  font-family: var(--font-heading);
+  font-weight: var(--font-heading-weight);
+  font-size: 13px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--color-chrome-text);
+  opacity: 0.8;
+  cursor: pointer;
+}
+.chrome-link:hover { opacity: 1; }
+
+/* The setup-run badge — WEBSERIAL on A6-A. Outlined, on the dark bar, like the state
+   lamp it sits beside; it is naming a capability the screen depends on, not a state. */
+.chrome .chrome-badge {
+  border: 1px solid var(--color-chrome-hairline);
+  color: var(--color-chrome-text);
+  background: none;
+}
+
+/* The device pill is the only LIVE thing in the chrome, and it now says so in the
+   house type rather than in a sentence: ON AIR / ASLEEP / OFFLINE at the .pill
+   defaults — 10px heading, 0.16em, a 6px dot, hairline border. It reads as a state
+   lamp beside the breadcrumb instead of as a status field, which is what the two
+   words are. Nothing to declare here; base.css .pill and .chrome .pill already
+   carry it. */
+
+/* ---- step rail ----------------------------------------------------------- */
+/* Two cells, 40px, and only on A7/A8 — the setup screens hide the rail entirely
+   (router.js). This is the CONTEXT BAR of the shared chrome stack: the band between
+   the 46px app bar and the action bar, set tight on purpose, because A7 carries three
+   bands above the canvas and this is what keeps that stack from eating the editor.
+
+   What used to be here was a three-cell act meter with locked/done/active states, a
+   numeral per cell, a status line under each title, and an expanded 70px mode for
+   first-run setup. Setup has no rail now, so none of it had anything left to describe. */
+
+#stepRail {
+  display: flex;
+  align-items: stretch;
+  flex: none;
+  height: 40px;
+  background: var(--color-rail);
+  border-bottom: 1px solid var(--color-divider);
+}
+
+.step {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0 18px;
+  min-width: 0;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  background: none;
+  font: inherit;
+  color: inherit;
+  text-align: left;
+  cursor: default;
+}
+.step + .step { border-left: 1px solid var(--color-divider); }
+.step .step-title {
+  font-family: var(--font-heading);
+  font-weight: var(--font-heading-weight);
+  font-size: 14px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  /* nowrap because the bar is 40px: a title that wraps pushes its second line out
+     through the bottom edge of the cell rather than growing the bar. */
+  white-space: nowrap;
+}
+.step[data-state="idle"] { opacity: 0.55; }
+.step[data-state="active"] { border-bottom-color: var(--color-accent); color: var(--color-accent); }
+.step[data-clickable="true"] { cursor: pointer; }
+.step[data-clickable="true"]:hover { background: color-mix(in srgb, var(--color-text) 5%, transparent); }
+
+.step-lines { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+
+/* ---- screens ------------------------------------------------------------- */
+
+#screens { flex: 1; min-height: 0; position: relative; }
+
+.screen { display: none; height: 100%; min-height: 0; }
+.screen[data-active="true"] { display: flex; flex-direction: column; }
+
+/* A padded, scrollable single column — A1's and A4's shape. */
+.screen-pad {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  padding: 34px 40px;
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+}
+
+/* Main column + fixed side rail — A5b, A5C and A6-A (400px). */
+.screen-split {
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: 1fr var(--rail-w, 400px);
+}
+.screen-split > .col-main {
+  min-width: 0;
+  overflow: auto;
+  padding: 28px 32px;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  border-right: 1px solid var(--color-divider);
+}
+.screen-split > .col-rail {
+  min-width: 0;
+  overflow: auto;
+  padding: 28px 26px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  background: var(--color-rail);
+}
+
+.screen-head { display: flex; flex-direction: column; gap: 6px; }
+.screen-head p { font-size: 14px; opacity: 0.8; max-width: 640px; text-wrap: pretty; }
+.screen-foot {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-top: auto;
+  padding-top: 16px;
+}
+.screen-foot.ruled { border-top: 1px solid var(--color-divider); }
+.screen-foot .note { font-size: 12.5px; opacity: 0.75; }
+
+/* ---- A1 · your displays --------------------------------------------------- */
+/* Tiles are little screens. The thumbnail is the last panel image this board actually
+   drew, on the e-paper ground rather than the UI ground, so the grid reads as a wall of
+   panels rather than a table of device names. */
+
+.device-count { font-size: 13px; opacity: 0.7; }
+
+/* The one header row that carries an action. .screen-head is a column of two
+   lines everywhere else, so the lines get their own box and the button sits
+   beside them. */
+.screen-head-row {
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+.screen-head-row .head-lines { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+
+/* Which Adafruit IO account the whole app is pointed at — a status readout that
+   happens to be clickable, so the username rides along in body type rather than
+   the heading face the label uses. */
+.account-btn { flex: none; height: 38px; padding: 0 12px; gap: 8px; background: var(--color-bg); }
+.account-btn .account-btn-user {
+  font-family: var(--font-body);
+  font-size: 12px;
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--color-muted);
+  max-width: 180px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.device-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 20px;
+  align-items: start;
+}
+@media (max-width: 900px) { .device-grid { grid-template-columns: repeat(2, 1fr); } }
+@media (max-width: 620px) { .device-grid { grid-template-columns: 1fr; } }
+
+.device-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  padding: 0;
+  min-width: 0;
+  border: 1px solid var(--color-divider);
+  background: var(--color-surface);
+  font: inherit;
+  color: inherit;
+  text-align: left;
+  /* Not a button any more, and not pointer: every tile carries its own Remove control,
+     so the card is a frame around two actions rather than one big one. The opening
+     action is .card-open, which fills everything above the footer. */
+  cursor: default;
+}
+.device-card:hover { border-color: color-mix(in srgb, var(--color-text) 40%, transparent); }
+
+.device-card .thumb {
+  display: grid;
+  place-items: center;
+  height: 132px;
+  padding: 10px;
+  overflow: hidden;
+  background: var(--panel-thumb);
+  border-bottom: 1px solid var(--color-divider);
+}
+/* Contain, never cover: this is a picture of a panel, and cropping it would show a
+   dashboard that is not the one on the glass.
+
+   SIZED AT 100%, not max-100%, and that is the fix for the crop this used to do. A
+   max-* pair leaves the box sized by the image, which puts the intrinsic size in play:
+   a grid item's automatic minimum size (`min-height: auto` on a replaced element is its
+   intrinsic height) can beat `max-height: 100%`, and a 250px-tall panel image then sits
+   at 250px in a 111px box with `overflow: hidden` showing the middle band of it. It was
+   invisible while most tiles had no picture at all; the feed sweep made every tile a
+   picture and the crop with it. A definite box with object-fit letterboxing inside it
+   cannot crop whatever the intrinsic size is, and the explicit min-* say so rather than
+   leaving it to a default that has an opinion. */
+.device-card .thumb-img {
+  width: 100%;
+  height: 100%;
+  min-width: 0;
+  min-height: 0;
+  object-fit: contain;
+  /* SMOOTH, unlike the panel previews on Showtime. A tile is always a downscale — a
+     250px panel into a 111px box — and downscaling averages neighbouring dither dots
+     into the grey the eye sees on the glass, for free. `pixelated` throws that away by
+     sampling one dot in three, which is what made these thumbnails read as noise. The
+     same reasoning as viewingBlur() in screens/a8.js, arriving at the other answer
+     because that preview is drawn at or above 1:1 and this one never is. */
+  image-rendering: auto;
+}
+.device-card .thumb-empty { font-size: 11.5px; opacity: 0.5; }
+/* A draft's product shot, framed the way A4's panel cards frame it (.panel-card .photo):
+   edge to edge on white. The padding and the panel grey are for a picture OF the glass,
+   and this is a photo of the whole board. Height stays the tile's, so the grid lines up. */
+.device-card .thumb-photo { padding: 0; background: #fff; }
+
+.device-card .meta { display: flex; flex-direction: column; gap: 6px; padding: 12px 14px 14px; min-width: 0; }
+.device-card .row { display: flex; align-items: center; gap: 8px; }
+.device-card .when { margin-left: auto; font-size: 11px; opacity: 0.6; white-space: nowrap; }
+.device-card .name {
+  font-family: var(--font-heading);
+  font-weight: var(--font-heading-weight);
+  font-size: 19px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.device-card .hardware { font-size: 12px; opacity: 0.75; }
+
+/* Every tile carries controls of its own — at the least, Remove — so
+   no tile can be one big button any more.
+
+   The opening action is an empty button STRETCHED OVER the card rather than a wrapper
+   around its contents. Wrapping was the obvious shape and the wrong one: it put a flex
+   container between the card and the thumbnail, changing the box tree the preview is
+   sized against for a control that draws nothing. Overlaid, the picture and the meta
+   stay direct children of the card exactly as they were, the whole tile surface stays
+   clickable, and the focus ring lands on the card as a whole. It has no text, so its
+   name comes from aria-label. */
+.device-card .card-open {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  border: 0;
+  padding: 0;
+  background: none;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+}
+/* The tile's own controls — Update firmware, Update Wi-Fi and Remove on a device,
+   Remove on a draft. Remove is destructive and one click from a wall of tiles, so the
+   row stays quiet until the tile is under the cursor or one of its buttons has focus —
+   visible enough to find, not so loud that a grid of displays reads as a grid of delete
+   buttons. It keeps its space in the layout either way, so revealing it never nudges the
+   card underneath the pointer. */
+.device-card .card-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin: 0 14px 12px;
+  /* Above the overlay, or the card's own open action would swallow every click on it. */
+  position: relative;
+  z-index: 2;
+  opacity: 0;
+  transition: opacity 90ms linear;
+}
+/* Remove sits apart from the two that keep the board, at the far end of the row. */
+.device-card .card-actions .card-remove { margin-left: auto; }
+.device-card:hover .card-actions,
+.device-card .card-actions:focus-within { opacity: 1; }
+@media (hover: none) {
+  .device-card .card-actions { opacity: 1; }
+}
+
+/* Dashed, and deliberately NOT on .card — no surface fill, so it reads as an empty slot
+   in the grid rather than a device that has lost its picture. */
+.add-tile {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  min-height: 240px;
+  padding: 20px;
+  border: 1px dashed var(--color-accent-400);
+  background: none;
+  color: var(--color-accent-text);
+  font: inherit;
+  cursor: pointer;
+}
+.add-tile:hover { border-color: var(--color-accent); background: color-mix(in srgb, var(--color-accent) 6%, transparent); }
+.add-tile .plus { font-family: var(--font-heading); font-size: 30px; line-height: 1; }
+.add-tile .cap {
+  font-family: var(--font-heading);
+  font-weight: var(--font-heading-weight);
+  font-size: 15px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  text-align: center;
+}
+.add-tile .sub { font-size: 12px; opacity: 0.75; }
+
+/* ---- A4 · pick the device ------------------------------------------------ */
+
+/* The "not on the list?" banner across the top of A4. Always two lines, one per way
+   out, on the accent's palest tint so it reads as a notice and not as a fourth card. */
+.a4-banner {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 12px 16px;
+  margin: 14px 0 18px;
+  background: var(--color-accent-100);
+  border-color: var(--color-accent-300);
+}
+.a4-banner p { margin: 0; font-size: 13px; line-height: 1.5; text-wrap: pretty; }
+.a4-banner a { color: var(--color-accent-700); text-decoration: underline; text-underline-offset: 2px; }
+.a4-banner a:hover { color: var(--color-accent-900); }
+
+#a4 .panel-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 18px;
+}
+/* Three cards, and the grid says three rather than fitting as many as will go. With a
+   fixed shortlist, auto-fill puts four columns on a wide screen and leaves the last one
+   empty — which reads as a card that failed to load. */
+#a4 .panel-grid-3 { grid-template-columns: repeat(3, 1fr); }
+@media (max-width: 860px) { #a4 .panel-grid-3 { grid-template-columns: 1fr; } }
+.panel-card {
+  display: flex;
+  flex-direction: column;
+  padding: 0;
+  cursor: pointer;
+  text-align: left;
+  font: inherit;
+  color: inherit;
+}
+.panel-card[data-selected="true"] { outline: 2px solid var(--color-accent); }
+.panel-card:hover { border-color: color-mix(in srgb, var(--color-text) 40%, transparent); }
+.panel-card .photo {
+  height: 118px;
+  display: grid;
+  place-items: center;
+  background: var(--color-neutral-300);
+  color: var(--color-neutral-700);
+  font-size: 11px;
+  letter-spacing: 0.14em;
+  overflow: hidden;
+}
+/* Product shots are white-ground catalogue photos, so the slot goes white and taller
+   and the whole product is shown (contain), rather than cropping a 4:3 shot down to a
+   strip of its middle. */
+.panel-card .photo:has(img) { height: 190px; background: #fff; }
+.panel-card .photo img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  object-position: center;
+}
+.panel-card .body {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 12px 13px 14px;
+  border-top: 1px solid var(--color-divider);
+}
+.panel-card .name { font-family: var(--font-heading); font-weight: var(--font-heading-weight); font-size: 17px; }
+.panel-card .spec { font-size: 11.5px; opacity: 0.7; }
+.panel-card .tag { align-self: flex-start; margin-top: 4px; }
+#a4 .empty-note { font-size: 13px; opacity: 0.7; padding: 20px 0; }
+
+/* ---- shared form plumbing (Settings) ------------------------------------- */
+
+.field-row { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+
+/* Advanced disclosure. Collapsed by default — the intimidating fields stay out
+   of the way of a user who bought a supported board. */
+.disclosure { display: flex; flex-direction: column; }
+.disclosure > summary {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+  cursor: pointer;
+  list-style: none;
+  font-family: var(--font-heading);
+  font-weight: var(--font-heading-weight);
+  font-size: 16px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+.disclosure > summary::-webkit-details-marker { display: none; }
+.disclosure > summary::after { content: "＋"; margin-left: auto; font-size: 18px; opacity: 0.6; }
+.disclosure[open] > summary::after { content: "－"; }
+.disclosure .disclosure-body {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 4px 16px 16px;
+  border-top: 1px solid var(--color-divider);
+}
+.grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+.grid-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
+.warn-line { font-size: 12.5px; color: var(--color-warn); }
+
+/* Preset chips. A chip is outlined in accent while the form still holds exactly
+   what that preset fills in, so divergence is visible. */
+.preset-row { display: flex; flex-wrap: wrap; gap: 8px; }
+.preset-chip[data-active="true"] { border-color: var(--color-accent); color: var(--color-accent-text); }
+
+/* ---- A5b · configure Adafruit IO ----------------------------------------- */
+/* The one field on the screen, at the size of the sentence under it. Everywhere else a
+   .field is one of a row of them and 13px is right; here it is the entire question the
+   screen asks, so it is scaled to match the feeds plate rather than the Settings form
+   it inherits from. Scoped to #a5b — the shared metrics in base.css stay put. */
+#a5b .field > .label { font-size: 12px; letter-spacing: 0.14em; }
+#a5b .field > input { min-height: 40px; padding: 9px 12px; font-size: 15px; }
+
+/* One box in two roles: a preview of the feeds that will be created, and then the
+   progress display for creating them. Sized off its own content in both, so the
+   layout does not shift when the action fires. */
+.feeds-plate { display: flex; flex-direction: column; gap: 12px; padding: 16px 18px; }
+.feeds-plate .feeds-line { margin: 0; font-size: 15px; }
+/* Read at body size rather than the 13px .check wears elsewhere: on A6-A a check row is
+   a progress tick beside the thing it describes, and here the four rows ARE the content
+   of the box — the feed keys this display is about to own. */
+.feeds-plate .feeds-rows { display: flex; flex-direction: column; gap: 10px; }
+.feeds-plate .check { font-size: 15px; }
+.feeds-plate .check .dot { width: 8px; height: 8px; }
+.feeds-plate .hint { margin: 0; }
+/* The failure text sits after the feed's own name on the same row. */
+.feeds-plate .check .why { margin-left: auto; padding-left: 12px; text-align: right; }
+
+/* ---- A5C · Wi-Fi credentials ---------------------------------------------- */
+/* The promise plate is load-bearing copy, not decoration — see the note in a5c.js.
+   Accent-tinted so it reads as a statement the app is making rather than another
+   grouped form field. */
+
+.promise-plate {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 14px 16px;
+  background: color-mix(in srgb, var(--color-accent) 7%, transparent);
+}
+.promise-plate p { margin: 0; font-size: 12.5px; text-wrap: pretty; }
+
+/* ---- A6-A · flash the device ---------------------------------------------- */
+
+.flash-status { display: flex; flex-direction: column; gap: 8px; }
+.flash-actions { display: flex; align-items: center; gap: 12px; }
+
+.flash-progress { display: flex; flex-direction: column; gap: 10px; }
+.flash-bar { display: flex; align-items: center; gap: 12px; }
+/* Wide enough for FIRMWARE at the label's tracking; the fw-row below shares it so the
+   status dot and the bar tracks start on the same line. */
+.flash-bar .label { flex: none; width: 72px; }
+.flash-bar .track {
+  flex: 1;
+  height: 10px;
+  background: var(--color-neutral-200);
+  border: 1px solid var(--color-divider);
+}
+.flash-bar .fill { display: block; height: 100%; width: 0; background: var(--color-accent); transition: width 0.15s linear; }
+.flash-bar .pct { flex: none; width: 52px; font-size: 11px; text-align: right; }
+/* The erase row says what it is doing rather than inventing a number: a full-chip erase
+   reports no progress, and an erase that was not asked for is not "0%" of anything. */
+.flash-bar[data-state="skipped"] { opacity: 0.5; }
+.flash-bar[data-state="busy"] .track { position: relative; overflow: hidden; }
+.flash-bar[data-state="busy"] .fill { width: 30%; transition: none; animation: flash-busy 1.1s ease-in-out infinite alternate; }
+@keyframes flash-busy { from { transform: translateX(-10%); } to { transform: translateX(240%); } }
+@media (prefers-reduced-motion: reduce) {
+  .flash-bar[data-state="busy"] .fill { animation: none; width: 100%; opacity: 0.35; }
+}
+
+/* The three stages share the column's rhythm; only one is shown at a time. */
+.flash-stage { display: flex; flex-direction: column; gap: 14px; }
+
+.fw-row { display: flex; align-items: center; gap: 10px; }
+.fw-row .label { flex: none; width: 72px; }   /* lines up with .flash-bar .label */
+/* The status line says which release and how far along; the track under it fills while
+   the image downloads. */
+.fw-release { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 6px; }
+.fw-release .check { font-size: 12.5px; min-width: 0; }
+.fw-release .check [data-role="text"] { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.fw-track { display: block; height: 4px; background: var(--color-neutral-200); border: 1px solid var(--color-divider); }
+.fw-track .fill { display: block; height: 100%; width: 0; background: var(--color-accent); transition: width 0.15s linear; }
+.fw-row[data-state="fetching"] .check .dot { animation: fw-pulse 1.1s ease-in-out infinite alternate; }
+@keyframes fw-pulse { from { opacity: 0.35; } to { opacity: 1; } }
+@media (prefers-reduced-motion: reduce) { .fw-row[data-state="fetching"] .check .dot { animation: none; } }
+
+.drive-steps { font-size: 13px; }
+/* The drive stage's plate is the whole instruction — the steps AND the button that acts
+   on them — so it is bigger and darker than the A5C promise plate it borrows from, and
+   reads as the one thing to look at rather than a note beside the actions. */
+.drive-plate {
+  gap: 14px;
+  padding: 22px 24px 24px;
+  background: color-mix(in srgb, var(--color-accent) 18%, var(--color-neutral-200));
+  border-color: color-mix(in srgb, var(--color-accent) 40%, var(--color-divider));
+}
+.drive-plate .label { font-size: 12px; color: var(--color-text); }
+.drive-plate .drive-steps { font-size: 14px; gap: 10px; line-height: 1.5; }
+.drive-plate .drive-steps .n { width: 16px; opacity: 0.7; }
+.drive-plate-actions { margin-top: 6px; }
+.drive-fallback { display: flex; flex-direction: column; gap: 10px; }
+
+.log-plate { display: flex; flex-direction: column; gap: 8px; padding: 14px 16px; flex: 1; min-height: 0; }
+/* Fixed height rather than growing: the log is the thing on this screen most likely to
+   run long, and a plate that grows with it pushes the connect row off the top of a
+   scrolling column mid-flash. */
+.log-body {
+  margin: 0;
+  height: 220px;
+  overflow: auto;
+  font-size: 11.5px;
+  line-height: 1.55;
+  white-space: pre-wrap;
+  word-break: break-word;
+  background: var(--color-neutral-100);
+  border: 1px solid var(--color-divider);
+  padding: 10px 12px;
+}
+.log-body:empty::before { content: 'Nothing yet.'; opacity: 0.45; }
+
+.rail-steps { display: flex; flex-direction: column; gap: 8px; font-size: 12.5px; text-wrap: pretty; }
+.rail-steps > div { display: flex; gap: 10px; }
+.rail-steps .n { flex: none; width: 14px; opacity: 0.55; }
+.rail-steps .step-body { flex: 1; min-width: 0; }
+
+/* ---- A7 · the editor ----------------------------------------------------- */
+
+#a7 .editor {
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: 200px 1fr 260px;
+}
+.toolbox, .inspector {
+  min-width: 0;
+  overflow: auto;
+  padding: 16px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  background: var(--color-rail);
+}
+.toolbox { border-right: 1px solid var(--color-divider); }
+.inspector { border-left: 1px solid var(--color-divider); gap: 10px; }
+
+/* Toolbox props: a bordered glyph tile then the name, left aligned. */
+.prop-btn { justify-content: flex-start; gap: 10px; padding: 7px 9px; font-size: 13px; letter-spacing: 0; }
+.prop-btn .tile {
+  width: 22px;
+  height: 22px;
+  flex: none;
+  display: grid;
+  place-items: center;
+  font-size: 12px;
+  border: 1px solid var(--color-divider);
+}
+
+/* Canvas ground: the dotted grid the device shell sits on. */
+.canvas-ground {
+  min-width: 0;
+  overflow: auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  padding: 24px 20px;
+  background-color: var(--color-canvas-ground);
+  background-image: radial-gradient(var(--color-canvas-dot) 1px, transparent 1px);
+  background-size: 20px 20px;
+}
+
+/* The device shell stands in for physical plastic — the one rounded thing in
+   the interface. Inside it the panel itself is square-cornered. */
+.device-shell {
+  padding: 22px 26px;
+  flex: none;
+  background: var(--panel-shell);
+  border-radius: var(--radius-shell);
+}
+#stage-holder {
+  position: relative;
+  line-height: 0;
+  background: var(--panel-paper);
+  border: 1px solid var(--panel-bezel);
+  box-shadow: var(--shadow-glass);
+}
+
+/* The meta strip under the panel: a readout and one control. The uppercase,
+   part-transparent treatment belongs to the READOUT rather than to the strip —
+   the dither trigger sits in the same row and must not inherit either. */
+.canvas-status {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex: none;
+  max-width: 100%;
+}
+.canvas-readout {
+  display: flex;
+  align-items: center;
+  /* Wraps rather than pushing the strip wider than the panel — and wrapping the
+     readout is the right sacrifice, since the trigger is the only thing here you
+     can press and it stays on the first line. */
+  flex-wrap: wrap;
+  gap: 8px;
+  min-width: 0;
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  opacity: 0.65;
+}
+.canvas-status .zoom-btn {
+  padding: 2px 7px;
+  font-family: var(--font-body);
+  font-size: 11px;
+  letter-spacing: 0;
+  text-transform: none;
+  background: var(--color-bg);
+}
+
+/* ---- A7 · the dither trigger and its popover ----------------------------- */
+/* Dither applies to the whole panel, so it is the display's setting and not the
+   selection's — it belongs under the panel, beside the readout that also
+   describes the whole panel. Outlined in accent because it is the one thing in
+   the strip you can press, and the readout next to it is plain muted text. */
+
+/* Stretched, with the chip pinned to its top: one line, the chip and the readout
+   read as centred together; if the readout wraps, the chip stays on the first
+   line rather than drifting down between the two. */
+.dither-anchor {
+  position: relative;
+  display: inline-flex;
+  align-items: flex-start;
+  align-self: stretch;
+  flex: none;
+}
+.dither-chip {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 10px;
+  /* .btn is heading font; the label is a value, like the sleep chip's. */
+  font-family: var(--font-body);
+  font-weight: 400;
+  font-size: 12px;
+  letter-spacing: 0;
+  white-space: nowrap;
+  border-color: var(--color-accent);
+  color: var(--color-accent-800);
+}
+.dither-chip:hover:not(:disabled) { background: var(--color-accent-100); }
+.dither-chip .caret { opacity: 0.5; }
+/* Held open while the popover is — same reason as the sleep chip. */
+.dither-chip[aria-expanded="true"] { background: var(--color-accent-100); }
+
+/* Inspector rows. refreshProps() renders into #propBody. */
+#propBody { display: flex; flex-direction: column; gap: 8px; }
+.prop-row { display: flex; gap: 6px; align-items: center; }
+.prop-row .label { flex: none; }
+.prop-row input[type="number"] { flex: 1; width: 0; }
+.prop-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.swatches { display: flex; gap: 6px; flex-wrap: wrap; }
+.swatch {
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  cursor: pointer;
+  border: 1px solid var(--color-divider);
+}
+.swatch[data-active="true"] { outline: 2px solid var(--color-accent); outline-offset: 1px; }
+/* "No background": a struck-through empty chip, the usual way of saying transparent. */
+.swatch-none {
+  background: linear-gradient(to top right, transparent calc(50% - 1px),
+    var(--color-muted) calc(50% - 1px), var(--color-muted) calc(50% + 1px), transparent calc(50% + 1px))
+    var(--color-bg);
+}
+/* The display background picker in the strip under the panel — the dither chip's
+   neighbour, so its swatches are the small kind. */
+.bg-pick { display: inline-flex; align-items: center; gap: 6px; flex: none; }
+.bg-pick .swatch { width: 16px; height: 16px; }
+.hint { font-size: 12px; line-height: 1.5; color: var(--color-muted); }
+.hint.hint-warn { color: var(--color-danger, #c0392b); }
+
+/* The canvas right-click menu (selection.js). Fixed, because it is placed at the
+   pointer's viewport coordinates and appended to <body>, outside any scroller. */
+.ctx-menu {
+  position: fixed;
+  z-index: 20;
+  min-width: 210px;
+  display: flex;
+  flex-direction: column;
+  padding: 4px;
+  background: var(--color-bg);
+  color: var(--color-text);
+  border: 1px solid var(--color-divider);
+  box-shadow: var(--shadow-md);
+}
+.ctx-menu[hidden] { display: none; }
+.ctx-menu .hr { margin: 4px 0; }
+.ctx-menu button {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 6px 10px;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  font-size: 13px;
+  text-align: left;
+  cursor: pointer;
+}
+.ctx-menu button .mono { font-size: 11.5px; opacity: 0.6; }
+.ctx-menu button:hover:not(:disabled),
+.ctx-menu button:focus-visible { background: var(--color-accent-100); outline: none; }
+.ctx-menu button:disabled { opacity: 0.4; cursor: default; }
+
+/* Secondary options, collapsed by default. The chart block carries a dozen of
+   them and the rail is 260px: shown flat they push the feed list and the history
+   window — the controls you actually reach for — off the top of the scroll. */
+.prop-group {
+  border: 1px solid var(--color-divider);
+  padding: 0 8px;
+}
+/* Matched to .label (base.css) so a group heading reads as the same rank as the
+   field captions it contains. */
+.prop-group > summary {
+  cursor: pointer;
+  padding: 6px 0;
+  font-size: 10.5px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--color-muted);
+}
+.prop-group[open] > summary { margin-bottom: 6px; }
+.prop-group > *:not(summary) { margin-bottom: 8px; }
+
+/* Font Awesome glyphs in the chrome, alongside the ones Konva draws onto the
+   canvas (see js/icons.js). Sized down because a chainlink next to 11px button
+   text reads as an illustration at matching size. */
+.fa-icon {
+  font-family: 'Font Awesome 6 Free';
+  font-weight: 900;
+  font-size: 0.9em;
+  line-height: 1;
+}
+
+/* ---- the action bar (A7 + A8) -------------------------------------------- */
+/* The third band of the chrome stack, shared by both working screens: app bar,
+   context bar, action bar, canvas. One row, light ground, and exactly one primary
+   button in it, pushed to the right edge.
+ *
+ * It exists because the committing action on each screen — push on A7, back into
+ * the editor on A8 — was previously buried in furniture: A7's push sat at the foot
+ * of a scrolling 260px settings rail, A8's sat inside a dark status bar among
+ * readouts. Both are the only thing to DO on their screen, and neither read that
+ * way. Giving them a band of their own says it once, in the same place, on both. */
+
+.action-bar {
+  position: relative;   /* the anchor for A7's sleep popover */
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex: none;
+  padding: 11px 26px;
+  background: var(--color-neutral-100);
+  border-bottom: 1px solid var(--color-divider);
+}
+.action-bar .action-label {
+  flex: none;
+  font-family: var(--font-heading);
+  font-weight: var(--font-heading-weight);
+  font-size: 14px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+/* The sentence that says what the button will do. Quiet, and allowed to be the
+   thing that gives way — it is the only item in the row that can be re-read from
+   the control beside it. */
+.action-bar .action-note {
+  min-width: 0;
+  font-size: 12.5px;
+  opacity: 0.7;
+  text-wrap: pretty;
+}
+
+/* ---- A7 · the sleep chip and its popover --------------------------------- */
+/* The sleep setting is set once and read often, so it is stated at rest and edited
+   behind a click. Outlined in accent rather than filled: it is the only other thing
+   in this bar you can press, and it must not read as a second primary beside PUSH
+   TO DISPLAY. */
+
+.sleep-chip {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex: none;
+  padding: 7px 12px;
+  /* .btn is heading font at heading weight; the chip is a sentence, so only its
+     SLEEP cap keeps that and the value reads as the plain text it is. */
+  font-family: var(--font-body);
+  font-weight: 400;
+  font-size: 13px;
+  letter-spacing: 0;
+  text-transform: none;
+  border-color: var(--color-accent);
+  color: var(--color-accent-800);
+}
+.sleep-chip:hover:not(:disabled) { background: var(--color-accent-100); }
+.sleep-chip .cap {
+  font-family: var(--font-heading);
+  font-weight: var(--font-heading-weight);
+  font-size: 12px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  opacity: 0.7;
+}
+.sleep-chip .value { white-space: nowrap; }
+.sleep-chip .caret { opacity: 0.5; }
+.dither-chip .key { opacity: 0.7; }
+/* Held open while the popover is: without it the chip drops back to rest the moment
+   focus moves into the first select, and the thing the panel belongs to stops
+   looking pressed. */
+.sleep-chip[aria-expanded="true"] { background: var(--color-accent-100); }
+
+/* One shell for both of A7's dropdowns. Two panels a click apart on the same
+   screen should not be two different objects, so the frame, the column width and
+   the internal rhythm are declared once and only the anchoring differs. */
+.sleep-pop,
+.dither-pop {
+  position: absolute;
+  top: calc(100% + 6px);
+  width: 290px;
+  display: flex;
+  flex-direction: column;
+  gap: 11px;
+  padding: 14px;
+  background: var(--color-bg);
+  z-index: 2;
+}
+/* Anchored to the BAR's left padding, not to the chip. Hung off the chip it would
+   walk sideways every time the value inside it changed length — "Timer · every
+   minute" against "Timer or button · every 45 minutes" is a 90px swing, and a panel
+   that moves when you change the setting inside it reads as a glitch. */
+.sleep-pop { left: 26px; }
+/* The dither chip is at the right end of a centred strip, so the panel hangs from
+   its right edge — that keeps it under the canvas rather than off the side of it. */
+.dither-pop { right: 0; }
+.pop-label { flex: none; font-size: 11px; opacity: 0.7; }
+.pop-note { font-size: 11.5px; opacity: 0.7; text-wrap: pretty; }
+.sleep-pop .input,
+.dither-pop .input { padding: 7px 9px; font-size: 12.5px; }
+
+/* The one primary in the bar, and the same geometry on both screens — an A8 user
+   coming back to A7 should find the commit in the same place at the same weight. */
+.btn-commit {
+  margin-left: auto;
+  flex: none;
+  padding: 10px 26px;
+  font-size: 15px;
+  letter-spacing: 0.1em;
+}
+
+/* The canvas.json readout — an advanced tool, not part of the design. Kept
+   because it is how the layout document is inspected while wiring a device. */
+#canvasJsonPanel { width: 100%; max-width: 900px; flex: none; }
+#canvasJsonPanel .cj-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 10px;
+  background: var(--color-neutral-100);
+  border-bottom: 1px solid var(--color-divider);
+}
+#canvasJsonPanel .cj-title { font-size: 10.5px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--color-muted); }
+#canvasJsonPanel .cj-actions { display: flex; align-items: center; gap: 6px; margin-left: auto; }
+#canvasSaveStatus { font-size: 10px; letter-spacing: 0.08em; color: var(--color-check-pass); }
+#canvasSaveStatus[data-state="saving"] { color: var(--color-warn); }
+#canvasSaveStatus[data-state="error"] { color: var(--color-danger); }
+#canvasJsonPanel pre {
+  margin: 0;
+  padding: 10px;
+  max-height: 220px;
+  overflow: auto;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  line-height: 1.5;
+  background: var(--color-bg);
+  white-space: pre;
+}
+
+/* A JSON readout inside a modal — the cfg-marquee.json view on A6-A. Same face as the
+   canvas.json panel above, sized to the dialog rather than the editor column. */
+.json-view {
+  margin: 0;
+  padding: 10px 12px;
+  max-height: 60vh;
+  overflow: auto;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  line-height: 1.5;
+  background: var(--color-bg);
+  border: 1px solid var(--color-divider);
+  white-space: pre;
+}
+.json-view:empty::before { content: 'Nothing yet.'; opacity: 0.45; }
+
+/* The import dialog: the file's display against this one, mismatches called out. */
+.import-modal { width: min(94vw, 480px); }
+.import-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+.import-table th, .import-table td {
+  padding: 4px 8px;
+  text-align: left;
+  border-bottom: 1px solid var(--color-divider);
+}
+.import-table th { font-weight: 600; color: var(--color-muted); }
+.import-table td { font-family: var(--font-mono); font-size: 11px; }
+.import-table tr[data-differs="true"] td { color: var(--color-warn); font-weight: 600; }
+.import-warnings { margin: 0; padding-left: 18px; font-size: 12px; color: var(--color-warn); }
+
+/* ---- A8 · showtime ------------------------------------------------------- */
+
+/* The context bar of A8's chrome stack — A7's act rail in the other key, and set to
+   the same rhythm as the action bar below it (11px 26px) so the three bands read as
+   one stack rather than as a dark banner with things under it.
+ *
+ * STATE ONLY. Every button has left this bar: what is on it is what the board is
+ * doing, what it reported, and the window it armed. */
+.sleep-bar {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  flex: none;
+  padding: 11px 26px;
+  background: var(--color-chrome);
+  color: var(--color-chrome-text);
+}
+
+/* The headline is now the largest thing on this bar, which is the point: the sleep
+   state IS the content of Showtime's context band, and it used to be a 18px caption
+   beside a 44px clapperboard. Both clapperboards are gone — the big one first, then the
+   chrome miniature that replaced it — so the prose is the whole of it. */
+.sleep-bar .message { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.sleep-bar .message .headline {
+  font-family: var(--font-heading);
+  font-weight: var(--font-heading-weight);
+  font-size: 30px;
+  line-height: 1.05;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+/* The board's reported times. Monospaced and quieter than the sub: it is a log line,
+   read for its numbers rather than its prose, and it must not compete with the
+   headline that says what those numbers mean. */
+.sleep-bar .message .report {
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  letter-spacing: 0.02em;
+  opacity: 0.55;
+}
+/* The armed window, right-aligned against the countdown running through it. Set as
+   a caption over a figure rather than as a sentence: it is the one number on this
+   bar that does not change while you watch it, and reading it should not cost a
+   sentence. */
+.sleep-bar .cadence {
+  margin-left: auto;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 2px;
+  flex: none;
+}
+.sleep-bar .cadence .cap {
+  font-size: 11px;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  opacity: 0.7;
+  white-space: nowrap;
+}
+.sleep-bar .cadence .figure {
+  font-family: var(--font-heading);
+  font-weight: var(--font-heading-weight);
+  font-size: 18px;
+  line-height: 1;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+#a8 .takes {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 26px;
+  padding: 22px;
+  background-color: var(--color-canvas-ground);
+  background-image: radial-gradient(var(--color-canvas-dot) 1px, transparent 1px);
+  background-size: 20px 20px;
+}
+.take { display: flex; flex-direction: column; gap: 8px; align-items: center; }
+/* Title and tag on one line: the tag is what names the take's ROLE in the cycle —
+   holding the stage, or coming up — and it is only legible beside the title it
+   qualifies. */
+.take .take-head { display: flex; align-items: center; gap: 10px; }
+.take .take-label {
+  font-family: var(--font-heading);
+  font-weight: var(--font-heading-weight);
+  font-size: 18px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  opacity: 0.75;
+}
+.take .caption { font-size: 12px; opacity: 0.6; }
+/* The padding is drawn as the device shell, the same plastic that frames the Build
+   canvas. On paper it blended into the bitmap's own white and read as a margin
+   inside the display, so content placed flush to an edge looked short of it. */
+.take .glass {
+  display: grid;
+  place-items: center;
+  padding: 14px;
+  background: var(--panel-shell);
+  border-radius: var(--radius-shell);
+}
+/* SMOOTHED, not pixelated, and this is the one place in the interface where that is the
+   more honest choice. previewScale() draws these panels at up to 2x — a 250x122 lands on
+   exactly 2.0 — and `pixelated` at 2x turns every dither dot into a 2x2 block, which is
+   literally twice the dot size the panel has. The result reads as far harsher than the
+   hardware: on real glass at ~110ppi the eye blends adjacent black and white dots into grey
+   at any normal viewing distance, and a bilinear upscale does the same thing on screen.
+   Faithful to the bitmap and faithful to the panel are different goals here, and this pair
+   exists to answer "what will it look like". The preview modal keeps `pixelated`, because
+   that one is for inspecting pixels on purpose. */
+.take .glass img { image-rendering: auto; }
+.take .glass .placeholder { font-size: 12px; color: color-mix(in srgb, var(--panel-paper) 70%, transparent); text-align: center; padding: 40px 20px; }
+/* Written = inert. Rendered at 75% so it reads as already-on-the-glass. */
+.take[data-role="written"] .glass { opacity: 0.75; }
+.take[data-role="next"] .take-label { color: var(--color-accent-text); opacity: 1; }
+.take[data-role="next"] .caption { color: var(--color-accent-text); opacity: 1; }
+
+/* ---- advanced tools ------------------------------------------------------ */
+/* Export / publish / raw send / reset are not in the handoff. They are how this
+   prototype is driven against a real board, so they stay — grouped and labelled
+   rather than scattered through the chrome, so they don't compete with the act
+   the user is actually in. */
+
+/* The bench drawer at the foot of the toolbox. .prop-group gives it the same summary
+   rank as an inspector group, so a folded heading here reads as a heading and not as a
+   sixth button; the margin keeps it off the divider above it. */
+.tools-group { margin-top: 2px; }
+/* Full width, unlike the drawer's contents, because it is not one of them: the danger
+   button stands alone under the fold and should look like the last word on this rail. */
+.tools-reset { justify-content: center; margin-top: 8px; font-size: 12px; padding: 6px 9px; }
+
+.tools { display: flex; flex-direction: column; gap: 6px; }
+.tools .btn { justify-content: flex-start; font-size: 12px; padding: 6px 9px; letter-spacing: 0.02em; }
+.tools-status { font-size: 11.5px; line-height: 1.45; color: var(--color-muted); word-break: break-word; }
+
+.size-ok { color: var(--color-check-pass); }
+.size-bad { color: var(--color-danger); }
+
+/* ---- panel thumbnails ---------------------------------------------------- */
+/* Small renderings of what a panel is showing, used in A8's captions and A1's
+   device tiles. Ground is the warm paper, never the UI ground. */
+
+.thumb { background: var(--panel-thumb); border: 1px solid var(--color-divider); }
+
+/* The Live chip shares the sleep chip's shape. Paused reads as a state worth noticing,
+   not as a fault: the value dims rather than turning red. */
+.live-chip.paused .value { opacity: 0.6; }

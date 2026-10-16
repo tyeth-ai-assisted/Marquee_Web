@@ -1,0 +1,178 @@
+/* ============================================================================
+   Marquee — design tokens.
+
+   THIS FILE IS THE SWAP LAYER. Every color, font and metric the interface uses
+   is declared here and nowhere else; the rest of the CSS refers to these
+   variables only. To re-skin Marquee onto Adafruit IO's own token set, change
+   the values in this file and leave base.css / app.css alone.
+
+   The values below come from the "Industry" design system the handoff was drawn
+   on (its styles.css under _ds/). Industry's accent is a desaturated steel, and
+   the design leans on that: one cool accent, the status lamps (green on air, red
+   offline), and nothing else saturated on the page. Swapping in a high-chroma brand color
+   (Adafruit pink #DD007A / blue #0062C7) works mechanically but changes that
+   balance — if you do it, re-derive the whole --color-accent-100..900 ramp on a
+   single lightness scale rather than tinting one step, or the accent-700/800
+   body text and the accent-900 chrome bar will drift out of relation.
+
+   Three groups, in order of how likely they are to change:
+     1. BRAND        — the accent ramp + neutrals. The swap target.
+     2. ROLES        — semantic aliases. What the rest of the CSS actually uses.
+     3. PANEL        — e-paper literals. These are physical, not brand: they
+                       describe what an e-ink panel looks like and should NOT be
+                       re-pointed at brand colors.
+   ========================================================================== */
+
+@import url('https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;700&family=Barlow+Condensed:wght@400;600&display=swap');
+
+/* Font Awesome 6 Free (Solid), vendored rather than pulled from a CDN — see the
+   note in js/icons.js. `swap` is deliberately NOT used: a fallback glyph baked
+   into a BMP and sent to a panel is a wrong render, so it is better for the icon
+   to be briefly absent than briefly wrong. */
+@font-face {
+  font-family: 'Font Awesome 6 Free';
+  font-style: normal;
+  font-weight: 900;
+  font-display: block;
+  src: url('../fonts/fa-solid-900.woff2') format('woff2');
+}
+
+/* IBM Plex, the faces canvas text draws in (js/lib/fonts.js), vendored for the same reason:
+   the panel's bitmap has to come out the same here and on a server render. */
+@font-face {
+  font-family: 'IBM Plex Mono';
+  font-style: normal;
+  font-weight: 400;
+  font-display: block;
+  src: url('../fonts/IBMPlexMono-Regular.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'IBM Plex Mono';
+  font-style: normal;
+  font-weight: 700;
+  font-display: block;
+  src: url('../fonts/IBMPlexMono-Bold.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'IBM Plex Sans';
+  font-style: normal;
+  font-weight: 400;
+  font-display: block;
+  src: url('../fonts/IBMPlexSans-Regular.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'IBM Plex Sans';
+  font-style: normal;
+  font-weight: 700;
+  font-display: block;
+  src: url('../fonts/IBMPlexSans-Bold.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'IBM Plex Serif';
+  font-style: normal;
+  font-weight: 400;
+  font-display: block;
+  src: url('../fonts/IBMPlexSerif-Regular.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'IBM Plex Serif';
+  font-style: normal;
+  font-weight: 700;
+  font-display: block;
+  src: url('../fonts/IBMPlexSerif-Bold.woff2') format('woff2');
+}
+
+:root {
+  /* ---- 1. BRAND ---------------------------------------------------------- */
+
+  --color-accent: #5980a6;
+  --color-accent-100: #eef6ff;
+  --color-accent-200: #d6ebff;
+  --color-accent-300: #b5d9fd;
+  --color-accent-400: #94bce3;
+  --color-accent-500: #749dc4;
+  --color-accent-600: #597ea3;
+  --color-accent-700: #416180;
+  --color-accent-800: #2c455d;
+  --color-accent-900: #1d2d3d;
+
+  --color-neutral-100: #f5f5f8;
+  --color-neutral-200: #e7e7ea;
+  --color-neutral-300: #d4d4d7;
+  --color-neutral-400: #b7b7ba;
+  --color-neutral-500: #98989b;
+  --color-neutral-600: #7a7a7d;
+  --color-neutral-700: #5d5d60;
+  --color-neutral-800: #424244;
+  --color-neutral-900: #2b2b2d;
+
+  --color-bg: #f2f2f3;
+  --color-surface: #e9e9ea;
+  --color-text: #1d1f20;
+
+  --font-heading: "Barlow Condensed", system-ui, sans-serif;
+  --font-heading-weight: 600;
+  --font-body: "Barlow", system-ui, sans-serif;
+  /* Editor readouts (dimensions, byte counts, pin names, JSON) want tabular
+     figures and a fixed advance. Barlow is neither. */
+  --font-mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+
+  /* ---- 2. ROLES ---------------------------------------------------------- */
+
+  --color-divider: color-mix(in srgb, var(--color-text) 16%, transparent);
+  --color-muted: color-mix(in srgb, var(--color-text) 55%, transparent);
+  --color-rail: var(--color-neutral-100);        /* side rails, toolbox, step rail */
+  --color-canvas-ground: var(--color-neutral-200);
+  --color-canvas-dot: var(--color-neutral-400);
+  --color-chrome: var(--color-accent-900);       /* app bar, sleep bar */
+  --chrome-h: 46px;                              /* the app bar's height, in one place */
+  --color-chrome-text: #f2f2f3;
+  --color-chrome-hairline: rgba(242, 242, 243, 0.35);
+
+  /* Body-size text in the accent has to step down the ramp — --color-accent
+     itself fails contrast below heading sizes. */
+  --color-accent-text: var(--color-accent-700);
+
+  /* Status lamps: green while the board is on air, red when it has gone quiet, grey
+     for asleep or unknown. Bright enough to read on the dark chrome bar, which is
+     where the on-air pill sits on every screen. */
+  --color-lamp-on: #4cc777;
+  --color-lamp-fault: #e05252;
+  --color-lamp-off: var(--color-neutral-400);
+  --color-check-pass: #3f8f5c;
+  --color-check-wait: var(--color-neutral-400);
+  --color-warn: #b8860b;
+  --color-danger: #b2453f;
+
+  --space-1: 3.4px;
+  --space-2: 6.8px;
+  --space-3: 10.2px;
+  --space-4: 13.6px;
+  --space-6: 20.4px;
+  --space-8: 27.2px;
+
+  /* Square everywhere. The one exception is the device shell around a panel
+     preview, which stands in for physical plastic — see --radius-shell. */
+  --radius: 0;
+  --radius-shell: 12px;
+
+  /* Three shadows exist: slide-overs, things that open OVER the page from a
+     control in it (a popover — nearer the surface than a modal, so a shorter
+     throw off the same ramp), and the recessed-glass inset on a panel preview. */
+  --shadow-lg: 0 12px 32px color-mix(in srgb, var(--color-neutral-900) 22%, transparent);
+  --shadow-md: 0 6px 18px color-mix(in srgb, var(--color-neutral-900) 18%, transparent);
+  --shadow-glass: inset 0 1px 4px rgba(0, 0, 0, 0.15);
+
+  /* A dialog that belongs to the page rather than the window dims the shelf and
+     leaves the app bar lit. --color-text is #1d1f20, so this is rgba(29,31,32,0.42)
+     without a literal. */
+  --color-scrim-below-chrome: color-mix(in srgb, var(--color-text) 42%, transparent);
+
+  /* ---- 3. PANEL (physical, do not re-point at brand colors) -------------- */
+
+  --panel-paper: #f0efea;      /* e-paper white — warmer than the UI ground */
+  --panel-bezel: #8f8f8a;      /* hairline around the glass */
+  --panel-ink: #1a1a1a;        /* ink drawn on the panel */
+  --panel-shell: #131313;      /* the device body around the glass */
+  --panel-thumb: #e6e5e0;      /* panel ground in small card thumbnails */
+}
