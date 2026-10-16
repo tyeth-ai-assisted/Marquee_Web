@@ -121,6 +121,7 @@ server renderer (`renderer/`, through `bakeReadings()` in `lib/bindings.js`).
 | `fit` | how a picture is placed in the frame: `contain` (whole picture, centred, bars where the shape differs; the default), `cover` (fills the frame, trimming the edges) or `stretch`. |
 | `feedKey`, `feedName` | as on a label. A feed shared from another account is `owner/key`. |
 | `src` | **a feed reference, not a picture:** `feed:` followed by `feedKey` (`FEED_IMAGE_REF` in `lib/feedimage.js`). It tells a reader that only looks at `src` that the picture is on a feed, so it can tell that apart from a missing picture. It is not a URL and nothing ever fetches it. An import replaces whatever `src` a file carries (base64 from an earlier build, a URL) with the reference. |
+| `dither`, `diffusion` | optional, on `feedimage` and `image` alike: this picture's own dither (`FloydSteinberg`, `ordered` or `none`, plus a 0–100 `diffusion` for Floyd–Steinberg). Absent means the picture follows the display's `dither`, which is the default for pictures. Only pictures are dithered, each on its own; everything else snaps to the nearest palette colour (`lib/imagedither.js`), in the editor and the server renderer alike. |
 
 The picture's bytes and natural size are readings, so they are not saved. That makes a new
 picture on the feed no change to the document at all (`lib/samples.js` has no entry for

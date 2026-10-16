@@ -894,6 +894,7 @@
 }
 .sleep-chip .value { white-space: nowrap; }
 .sleep-chip .caret { opacity: 0.5; }
+.dither-chip .key { opacity: 0.7; }
 /* Held open while the popover is: without it the chip drops back to rest the moment
    focus moves into the first select, and the thing the panel belongs to stops
    looking pressed. */

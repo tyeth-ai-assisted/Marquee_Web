@@ -350,6 +350,8 @@ export function addFeedImage(attrs = {}) {
 export function imageToFeedImage(node, attrs = {}) {
   const g = addFeedImage({
     x: node.x(), y: node.y(), w: Math.round(node.width()), h: Math.round(node.height()),
+    // Its own dither, if it had one, comes with it.
+    dither: node.getAttr('dither'), diffusion: node.getAttr('diffusion'),
     ...attrs,
   });
   g.zIndex(node.zIndex());

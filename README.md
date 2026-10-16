@@ -24,8 +24,12 @@ npm start
 
 ## Bitmap Rendering
 
-Everything you draw on the canvas is rendered, dithered, palette-remapped by
-`public/js/lib/bitmap.js`. 
+Everything you draw on the canvas is rendered and palette-remapped by
+`public/js/lib/bitmap.js`. Only pictures are dithered: each one is dithered on its
+own, at the size it is drawn, with the panel's default or its own setting
+(`public/js/lib/imagedither.js`). The whole panel is then snapped to the nearest
+palette colour, so text, charts and shapes are never dithered. The server renderer
+(`renderer/`) runs the same code.
 
 `bitmap.js` is a pure-JS port of a subset of the ImageMagick CI pipeline and implements the following `magick` (ImageMagick) command only:
 ```

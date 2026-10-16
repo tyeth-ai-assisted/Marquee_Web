@@ -18,6 +18,14 @@ import { normalizeDatetimeAttrs, placeholderText } from './timefmt.js';
 import { FA_FAMILY, FA_WEIGHT, iconGlyph, DEFAULT_GAUGE_ICON } from './icons.js';
 import { FONT_MONO, normalizeFontFamily } from './fonts.js';
 import { fitRect, FEED_IMAGE_FITS, feedImageRef } from './feedimage.js';
+import { savedImageDither } from './imagedither.js';
+
+/** A picture's own dither (see imagedither.js), set on its node only when it has one. */
+function applyImageDither(node, attrs) {
+  const own = savedImageDither(attrs);
+  if (own.dither) node.setAttr('dither', own.dither);
+  if (own.diffusion !== undefined) node.setAttr('diffusion', own.diffusion);
+}
 
 /** The darkest ink of the panel's palette, which every palette has. */
 const inkOf = (display) => (PALETTES[display?.type] || PALETTES.mono)[0];
@@ -1059,6 +1067,7 @@ export function createImage(Konva, imageObj, attrs = {}, display, nodeProps = {}
   node.setAttr('natW', iw);
   node.setAttr('natH', ih);
   if (attrs.src) node.setAttr('src', attrs.src); // data URL kept for save/load
+  applyImageDither(node, attrs);
   return node;
 }
 
@@ -1089,6 +1098,7 @@ export function createFeedImage(Konva, attrs = {}, display, nodeProps = {}) {
   g.setAttr('imageObj', img);
   g.setAttr('natW', img ? img.width : null);
   g.setAttr('natH', img ? img.height : null);
+  applyImageDither(g, attrs);
   buildFeedImage(Konva, g);
   return g;
 }
@@ -1146,7 +1156,7 @@ export function serializeElement(n) {
     Object.assign(base, {
       src: n.getAttr('src'), w: Math.round(n.width()), h: Math.round(n.height()),
       natW: n.getAttr('natW'), natH: n.getAttr('natH'),
-    });
+    }, savedImageDither(n.attrs));
   } else if (etype === 'feedimage') {
     // The frame and the fit are the design. The picture is on the feed, so `src` names
     // the feed (see feedImageRef) instead of carrying the bytes. Its natural size only
@@ -1155,7 +1165,7 @@ export function serializeElement(n) {
       w: n.getAttr('w'), h: n.getAttr('h'), fit: n.getAttr('fit') || 'contain',
       feedKey: n.getAttr('feedKey') || '', feedName: n.getAttr('feedName') || '',
       src: feedImageRef(n.getAttr('feedKey')),
-    });
+    }, savedImageDither(n.attrs));
   } else if (etype === 'indicator') {
     // Explicit branch: the generic widget shape below is {ink,title,w}+value,
     // which would drop the feed binding, the condition and the on/off colors.

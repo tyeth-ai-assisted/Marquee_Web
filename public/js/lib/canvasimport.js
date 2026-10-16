@@ -15,6 +15,7 @@
 
 import { PALETTES, logicalDimsOf, isHexColor } from './palette.js';
 import { feedImageRef } from './feedimage.js';
+import { IMAGE_DITHERS } from './imagedither.js';
 
 /** Every etype deserialize() has a factory for. Anything else would silently load as
  *  a label, which is worse than saying so and leaving it out. */
@@ -110,6 +111,14 @@ export function validateCanvasDoc(text) {
       const { natW, natH, ...frame } = el;
       el = { ...frame, src: feedImageRef(el.feedKey) };
       if (!el.feedKey) warnings.push(`${at} is an image with no Adafruit IO feed; it will show as an empty frame.`);
+    }
+    // A picture's own dither. Unknown is not fatal: the picture just follows the panel.
+    if ((el.etype === 'image' || el.etype === 'feedimage') && el.dither !== undefined
+        && !IMAGE_DITHERS.includes(el.dither)) {
+      warnings.push(`${at} has an unknown dither ${JSON.stringify(el.dither)}; it will use the panel default.`);
+      el = { ...el };
+      delete el.dither;
+      delete el.diffusion;
     }
     elements.push(el);
   });
