@@ -31,7 +31,7 @@ const {
   createElement, createImage, serializeElement, buildScene, rebuildWidget, feedImagePlaceholderColors,
 } = await import('../public/js/lib/scene.js');
 
-const display = { width: 128, height: 296, rotation: 0, panel: 'magtag', type: 'tricolor', background: '#F2F4EF' };
+const display = { width: 128, height: 296, rotation: 0, panel: 'magtag', type: 'tricolor', background: '#FFFFFF' };
 const INK = '#2F2429', RED = '#D72627';
 
 /** One fully specified element of every type, as canvas.json saves it. */
@@ -50,7 +50,7 @@ const ELEMENTS = [
   { etype: 'gauge', x: 200, y: 10, w: 80, ink: INK, title: 'Wind', min: 0, max: 50, ringWidth: 10,
     gaugeLabel: 'mph', lowWarn: '', highWarn: 40, decimals: 0, showIcon: true, icon: 'wind',
     warnColor: RED, alarmColor: RED, feedKey: 'wind', feedName: 'Wind', gaugeValue: '12' },
-  { etype: 'indicator', x: 250, y: 100, w: 16, ink: INK, onColor: RED, offColor: '#F2F4EF',
+  { etype: 'indicator', x: 250, y: 100, w: 16, ink: INK, onColor: RED, offColor: '#FFFFFF',
     op: 'gt', cmp: '30', feedKey: 'temp', feedName: 'Temp', value: '31' },
   { etype: 'battery', x: 250, y: 4, w: 30, ink: INK, showPct: true,
     conds: [{ op: 'lt', cmp: '20', color: INK }], defaultShade: INK,
@@ -154,7 +154,7 @@ test('buildScene: the page is snapped to the panel palette, and PAPER when unset
   assert.equal(buildScene(Konva, { display: { ...mono, background: RED }, elements: [] }).group
     .getChildren()[0].fill(), INK);   // red is not on a mono panel; ink is nearest
   assert.equal(buildScene(Konva, { display: mono, elements: [] }, { display: mono }).group
-    .getChildren()[0].fill(), '#F2F4EF');
+    .getChildren()[0].fill(), '#FFFFFF');
 });
 
 test('buildScene: images come from the host, by element index', () => {
@@ -205,15 +205,15 @@ test('feedimage: without a picture it draws the outlined question mark (#24)', (
 });
 
 test('feedimage placeholder: always contrasts with the page, whatever its colour', () => {
-  assert.deepEqual(feedImagePlaceholderColors({ type: 'tricolor', background: '#F2F4EF' }), { outline: INK, mark: RED });
+  assert.deepEqual(feedImagePlaceholderColors({ type: 'tricolor', background: '#FFFFFF' }), { outline: INK, mark: RED });
   // A black page: the outline goes paper-white, so the frame cannot vanish into it.
-  assert.deepEqual(feedImagePlaceholderColors({ type: 'mono', background: INK }), { outline: '#F2F4EF', mark: '#F2F4EF' });
+  assert.deepEqual(feedImagePlaceholderColors({ type: 'mono', background: INK }), { outline: '#FFFFFF', mark: '#FFFFFF' });
   // A red page: the mark is not drawn red-on-red.
   const onRed = feedImagePlaceholderColors({ type: 'tricolor', background: RED });
   assert.notEqual(onRed.mark, RED);
   assert.notEqual(onRed.outline, RED);
   // gray4 has no red; a dark grey page gets the paper.
-  assert.equal(feedImagePlaceholderColors({ type: 'gray4', background: '#70696B' }).outline, '#F2F4EF');
+  assert.equal(feedImagePlaceholderColors({ type: 'gray4', background: '#70696B' }).outline, '#FFFFFF');
 });
 
 test('buildScene: a feed image is always drawn, with its picture when the host decoded one', () => {

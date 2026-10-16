@@ -15,8 +15,8 @@ import {
 } from '../lib/palette.js';
 
 export {
-  PAPER, PALETTES, MODE_LABELS, LANDSCAPE_AT_ZERO_PANELS, logicalDimsOf,
-  hexToRGB, nearestColor, isHexColor, isNeutralHex,
+  PAPER, LEGACY_PAPER, PALETTES, MODE_LABELS, LANDSCAPE_AT_ZERO_PANELS, logicalDimsOf,
+  hexToRGB, nearestColor, isHexColor, isNeutralHex, migrateLegacyPaper,
 } from '../lib/palette.js';
 
 /**

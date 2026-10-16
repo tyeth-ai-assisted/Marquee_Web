@@ -17,7 +17,7 @@ import { FontLibrary, loadImage } from 'skia-canvas';
 
 import { renderScene } from '../public/js/lib/render.js';
 import { feedReads, bakeReadings } from '../public/js/lib/bindings.js';
-import { PALETTES } from '../public/js/lib/palette.js';
+import { PALETTES, migrateLegacyPaper } from '../public/js/lib/palette.js';
 import { FONT_FILES } from '../public/js/lib/fonts.js';
 import { FA_FAMILY } from '../public/js/lib/icons.js';
 import { normalizeDatetimeAttrs, strftime } from '../public/js/lib/timefmt.js';
@@ -151,7 +151,8 @@ export async function render({ doc, readings, display = doc?.display, now, timeZ
   checkRequest(doc, display);
 
   loadFonts();
-  const timed = atTime(bakeReadings(doc, readings), { now, timeZone });
+  // A document saved when the paper was the tint #F2F4EF draws on white, as in the editor.
+  const timed = atTime(bakeReadings(migrateLegacyPaper(doc), readings), { now, timeZone });
   // The account's zone rides on the display, for the chart's time axis: the process's own
   // zone is the server's (UTC on Lambda), not anything the user would recognise.
   const zoned = { ...display, timeZone: knownZone(timeZone) };
