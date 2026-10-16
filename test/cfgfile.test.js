@@ -20,7 +20,7 @@ test('the MagTag preset makes the worked example in docs/cfg-marquee.md', () => 
   assert.deepEqual(cfg, {
     cfg_version: CFG_VERSION,
     name: 'kitchen-board',
-    display: { driver: 'SSD1680', panel: 'magtag', width: 128, height: 296, rotation: 0, mode: 'mono' },
+    display: { driver: 'SSD1680', panel: 'magtag', width: 128, height: 296, rotation: 0, mode: 'grayscale4' },
     interface: {
       type: 'spi_epd', spi_bus: 0,
       pins: { cs: 8, dc: 7, reset: 6, busy: 5, sram_cs: -1, mosi: -1, sclk: -1 },
