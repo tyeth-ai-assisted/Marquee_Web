@@ -110,3 +110,14 @@ test('a missing document is never "the same"', () => {
   assert.equal(sameDesign(doc(), null), false);
   assert.equal(sameDesign(null, null), false);
 });
+
+test('a feed image saves no reading: only its frame and its feed are the design (#36)', () => {
+  const frame = { etype: 'feedimage', x: 10, y: 10, w: 120, h: 90, fit: 'contain',
+    feedKey: 'doorbell', feedName: 'Doorbell', src: 'feed:doorbell' };
+  assert.deepEqual(stripSamples(frame), frame);
+  assert.equal(sameDesign(doc(frame), doc({ ...frame })), true);
+  // Resizing the frame, changing the fit, or binding another feed: all edits.
+  assert.equal(sameDesign(doc(frame), doc({ ...frame, w: 200 })), false);
+  assert.equal(sameDesign(doc(frame), doc({ ...frame, fit: 'cover' })), false);
+  assert.equal(sameDesign(doc(frame), doc({ ...frame, feedKey: 'birdfeeder', src: 'feed:birdfeeder' })), false);
+});

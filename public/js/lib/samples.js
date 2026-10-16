@@ -44,6 +44,10 @@
  * `linechart` gives up `series` (the fetched points) and keeps `feeds` (which feeds are
  * bound, which is a design decision) and `data` (the authored sample series, written only
  * when nothing is bound).
+ *
+ * `feedimage` has no entry because it saves no reading. Its picture stays on the feed and
+ * `src` is only the feed reference (lib/feedimage.js), so a new picture on the feed never
+ * changes the document at all.
  */
 export const SAMPLE_KEYS = {
   label: ['feedValue', 'text'],

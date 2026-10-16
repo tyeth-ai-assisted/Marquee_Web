@@ -20,8 +20,9 @@ import { layer, fitZoom, hideDitherPreview, syncDisplayBackground } from '../can
 import { select } from '../canvas/selection.js';
 import {
   addLabel, addDivider, addLineChart, addGauge, addIndicator, addBattery, addImage, addDatetime,
-  remapColorsToPalette,
+  addFeedImage, remapColorsToPalette,
 } from '../canvas/elements.js';
+import { refreshFeedImage } from '../device/feeds.js';
 import { placeInSavedOrder } from '../lib/zorder.js';
 import { serializeElement } from '../lib/scene.js';
 import { applyDisplayToForm, setResolution, applyDither } from './config.js';
@@ -95,6 +96,14 @@ export function deserialize(doc, { keepDisplay = false } = {}) {
         img.onerror = () => resolve();
         img.src = el.src;
       }));
+    } else if (el.etype === 'feedimage') {
+      // Built at once, with its frame. The document names the feed rather than holding
+      // the picture (#36), so the picture is read from the feed now. That read is awaited
+      // by the same promise as a static image's decode, for the same reason: whatever
+      // photographs the canvas next must not capture an empty frame.
+      const node = addFeedImage(el);
+      slots[i] = node;
+      loading.push(refreshFeedImage(node).catch(() => false));
     } else {
       // Every factory reads its own attrs off the raw saved object, so the factory
       // is also the deserializer — including addGauge's `value` -> `gaugeValue`

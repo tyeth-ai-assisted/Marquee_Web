@@ -103,3 +103,29 @@ test('downsample and chartReadId', () => {
   assert.deepEqual(downsample([1, 2], 5), [1, 2]);
   assert.equal(chartReadId('k', { hours: 168, raw: true }), 'k@168h/raw');
 });
+
+// ---- feed image (#36) ----
+
+const PNG = 'iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAYAAABytg0kAAAAFElEQVQImWNgYGD4z8DAwMDAAAAAPAAB';
+const pictures = doc(
+  { etype: 'feedimage', w: 40, h: 30, feedKey: 'cam', feedName: 'Cam', src: 'feed:cam' },
+  { etype: 'label', feedKey: 'cam', feedValue: 'x', text: 'x' },
+  { etype: 'feedimage', w: 40, h: 30, feedKey: '', src: 'feed:' },
+);
+
+test('feedReads: a feed image is one last-value read, shared with anything else on its feed', () => {
+  assert.deepEqual(feedReads(pictures).reads, [{ id: 'cam', feed: 'cam', kind: 'last' }]);
+});
+
+test("bakeReadings: a picture becomes the feed image's src, as a data URL", () => {
+  const out = bakeReadings(pictures, { last: { cam: PNG } });
+  assert.equal(out.elements[0].src, `data:image/png;base64,${PNG}`);
+  assert.equal(pictures.elements[0].src, 'feed:cam', 'the input is not mutated');
+  assert.equal(out.elements[2].src, 'feed:', 'an unbound frame is left alone');
+});
+
+test('bakeReadings: a value that is not a picture, or no reading, keeps the feed reference', () => {
+  for (const readings of [{ last: { cam: '21.5' } }, { last: { cam: null } }, {}]) {
+    assert.equal(bakeReadings(pictures, readings).elements[0].src, 'feed:cam');
+  }
+});

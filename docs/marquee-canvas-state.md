@@ -37,8 +37,8 @@ derived from the group like every other key here, so renaming a display moves al
 feeds together.
 
 **Keep feed history OFF.** History caps a datum at 1 KB (`IO_MAX_HISTORY`); a scene
-with two labels is already past that and one with an embedded image runs to hundreds
-of kilobytes. Off, the ceiling is 512 KB (`IO_MAX_NO_HISTORY`), which is what
+with two labels is already past that, and one with an image from before #36 (embedded
+rather than on a feed) runs to hundreds of kilobytes. Off, the ceiling is 512 KB (`IO_MAX_NO_HISTORY`), which is what
 `flush()` gates on. It is the same reasoning as `.bitmap`, and it has the same
 consequence: **the feed holds exactly one datum, the current one.** There is no
 history of a design here and there is not meant to be — `/data` returns `[]` and
@@ -62,7 +62,7 @@ keep in step.
 There is no `z` field. `elements` is written bottom-first, in the order the nodes sit in
 the editor's content layer, so the array order **is** the z-order and a reader that
 draws them in sequence gets the same overlap the editor showed. `deserialize()` keeps
-it: an image is only built once its data URL decodes, after everything else, so
+it: an embedded image is only built once its data URL decodes, after everything else, so
 `placeInSavedOrder()` (`public/js/lib/zorder.js`) slots each one back down beneath
 the first later element already on the canvas instead of leaving it on top. The editor
 reorders with the inspector's **Layer** row, the right-click menu, or
@@ -99,6 +99,59 @@ refreshes the time when a new image is pushed.
 
 `text` is not saved: it is `timeValue`, or the preset's example before the first read.
 `normalizeDatetimeAttrs()` is shared by the factory and `serialize()`, so the two agree.
+
+### The `feedimage` element
+
+The toolbox's **Image from Adafruit IO Feed** prop, and since #36 the only way a picture gets
+onto the canvas. **Every picture lives on an Adafruit IO feed**, never inside this document:
+a feed that already holds one (a doorbell or bird-feeder camera's latest frame, anything
+published as base64), or a new feed the editor creates and uploads to. The picture is
+re-read through `refreshFeedElements()` like every other binding, once per push and per
+live take, and decoded by whoever is drawing: the browser in the editor, skia-canvas in the
+server renderer (`renderer/`, through `bakeReadings()` in `lib/bindings.js`).
+
+```json
+{"etype":"feedimage","x":8,"y":8,"w":120,"h":90,"fit":"contain","feedKey":"drop-image","feedName":"drop-image",
+ "src":"feed:drop-image"}
+```
+
+| field | meaning |
+|---|---|
+| `w`, `h` | the **frame**, in panel pixels, which the user sizes. Every picture the feed delivers is placed into this box, so a feed whose pictures swing between portrait and landscape neither ratchets the element smaller nor runs it off the panel. |
+| `fit` | how a picture is placed in the frame: `contain` (whole picture, centred, bars where the shape differs; the default), `cover` (fills the frame, trimming the edges) or `stretch`. |
+| `feedKey`, `feedName` | as on a label. A feed shared from another account is `owner/key`. |
+| `src` | **a feed reference, not a picture:** `feed:` followed by `feedKey` (`FEED_IMAGE_REF` in `lib/feedimage.js`). It tells a reader that only looks at `src` that the picture is on a feed, so it can tell that apart from a missing picture. It is not a URL and nothing ever fetches it. An import replaces whatever `src` a file carries (base64 from an earlier build, a URL) with the reference. |
+
+The picture's bytes and natural size are readings, so they are not saved. That makes a new
+picture on the feed no change to the document at all (`lib/samples.js` has no entry for
+this element), and keeps the canvas-state datum small however many pictures it shows.
+
+**The value on the feed** may be raw base64 or a `data:` URL. The format is read off the
+first bytes (`parseFeedImage()` in `lib/feedimage.js`), never off a declared type, and only
+**PNG, JPEG, GIF and BMP** are accepted. **The feed must have history OFF:** history caps a
+datum at 1 KB and no picture fits. With it off the ceiling is 512 KB (`IO_MAX_NO_HISTORY`).
+Picking a history-on feed offers to turn its history off, and is refused if the user declines.
+
+**Uploading** (`device/imagefeeds.js`) fits the picture inside the panel, keeps the file's
+own bytes when it already fits in an accepted format, and otherwise re-encodes it as PNG,
+then JPEG at falling quality, until it is under 512 KB. Only then is a feed created, in the
+account's default group with history off, and the picture published to it. IO's own error
+text is shown verbatim (the account's feed limit, a name already taken). A feed whose
+publish fails is deleted again so it does not count against that limit.
+
+**No picture** (the feed is empty, or holds something that is not a picture) draws as a
+dashed outline with a large question mark, on the canvas and on the panel. Both colours are
+chosen against the page so the frame stays visible on any background, and the mark is red
+where the panel has red. A failed read keeps the previous picture, like every binding.
+
+There is no unlink (#24). A different picture means a different feed (**Change** in the
+inspector, which also offers an upload), or a new picture on the same feed (**Replace the
+picture on this feed**, which asks first, since everything reading that feed changes too).
+
+**Images from before #36.** An `image` element embeds its picture in the document as a data
+URL. Nothing creates one any more, but documents that have them still load, draw and render.
+The inspector offers **Move to an Adafruit IO feed**, which uploads the picture (or binds a
+feed already holding one) and turns the element into a `feedimage` where it stands.
 
 ## Cadence — why it is not the autosave
 
@@ -164,8 +217,8 @@ In order, all of it guarded on the active device not having changed underneath:
    the artwork, so it is always taken from the document (snapped to this panel's
    palette), and a document without one loads on the default paper colour.
 4. `saveCanvasNow()` — localStorage and the timestamp.
-5. `whenCanvasSettled()` — images decode asynchronously, and photographing the canvas
-   early caches a panel with holes where the artwork goes.
+5. `whenCanvasSettled()` — images decode asynchronously, and a feed image reads its feed
+   first, so photographing the canvas early caches a panel with holes where the artwork goes.
 6. `capturePanelFromCanvas()` in `screens/a8.js` — renders the scene in the browser
    (`render.js` -> `bitmap.js`) and files the BMP under `marquee.panelNow.<id>`, so the A1 tile shows the
    display instead of "Nothing drawn yet" and A8's left-hand glass is not empty.
@@ -225,9 +278,10 @@ that machine's idea of the panel.
   scene changed elsewhere while you are sitting in the editor does not arrive until you
   switch displays or reload. Deliberate for now: polling a feed this large on a
   cadence would spend the account's rate limit on a case that almost never happens.
-- **A scene over 512 KB is not mirrored.** `elements.js` allows a 25 MB embedded image,
-  so this is reachable by an ordinary drag-and-drop. Said once, and the document is
-  still saved locally — but that display will not open on another machine.
+- **A scene over 512 KB is not mirrored.** Since #36 a new picture is on a feed and
+  costs the document a few dozen bytes, but a document from before then can still embed
+  a large image. Said once, and the document is still saved locally, but that display will
+  not open on another machine until its images are moved onto feeds.
 - **The clock comparison is best-effort.** See "Who wins": a browser clock hours ahead
   of IO's makes rule 5 swallow a genuine remote edit. Rule 2 covers the common case,
   and closing the rest would mean recording the datum's `created_at` at publish time

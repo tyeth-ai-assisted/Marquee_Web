@@ -15,9 +15,10 @@ import {
   isWidget, rebuildWidget, elementColor, setElementColor, wireNode, nextId,
   INDICATOR_OPS, MIN_WIDGET_W, indicatorValueKnown, batteryFraction,
   isFeedLinked, linkedLabelText, feedValueAttr, CHART_RANGES, CHART_RAW_MAX,
-  CHART_FONT_MIN, CHART_FONT_MAX, gaugeValue, applyTimeValue, TEXT_PAD_MAX,
+  CHART_FONT_MIN, CHART_FONT_MAX, gaugeValue, applyTimeValue, TEXT_PAD_MAX, MIN_WIDGET_H,
 } from './elements.js';
-import { openFeedPicker, refreshFeedElements, refreshChart } from '../device/feeds.js';
+import { openFeedPicker, refreshFeedElements, refreshChart, replaceFeedPicture } from '../device/feeds.js';
+import { FEED_IMAGE_FITS, FEED_IMAGE_TYPES, sniffImageType } from '../lib/feedimage.js';
 import { listTimezones } from '../device/iotime.js';
 import { TIME_PRESETS, presetForFmt } from '../lib/timefmt.js';
 import { GAUGE_ICONS, FA_LINK } from './icons.js';
@@ -35,13 +36,15 @@ export function select(node) {
       tr.enabledAnchors(['middle-left', 'middle-right', 'top-center', 'bottom-center']);
     else if (etype === 'gauge' || etype === 'indicator' || etype === 'battery')
       tr.enabledAnchors(['top-left', 'top-right', 'bottom-left', 'bottom-right']);
-    else if (etype === 'image')
+    else if (etype === 'image' || etype === 'feedimage')
       tr.enabledAnchors(['top-left', 'top-right', 'bottom-left', 'bottom-right',
                          'middle-left', 'middle-right', 'top-center', 'bottom-center']);
     else
       tr.enabledAnchors(['top-left', 'top-right', 'bottom-left', 'bottom-right', 'middle-left', 'middle-right']);
     // An explicit allow-list: an etype omitted here silently gets keepRatio(false),
-    // which would let the indicator lamp be dragged into an ellipse.
+    // which would let the indicator lamp be dragged into an ellipse. A feed image is
+    // deliberately NOT here: its box is a frame the picture is fitted into, so any shape
+    // is a legitimate shape for it.
     tr.keepRatio(etype === 'image' || etype === 'label' || etype === 'datetime' || etype === 'gauge'
       || etype === 'linechart' || etype === 'indicator' || etype === 'battery');
     tr.nodes([node]);
@@ -128,14 +131,35 @@ function gaugeValueText(n) {
   return raw ? { text: `${raw} (not a number)`, known: false } : { text: '(unknown)', known: false };
 }
 
+/**
+ * A feed image's reading, described rather than shown: the Value row would otherwise
+ * hold eighty thousand characters of base64. Size and format are what a user checking
+ * "did the new picture arrive" wants to see.
+ */
+function feedImageValueText(n) {
+  const src = n.getAttr('src');
+  if (!src || !n.getAttr('natW')) return { text: n.getAttr('feedKey') ? '(no picture)' : '(no feed)', known: false };
+  const b64 = src.slice(src.indexOf(',') + 1);
+  const kb = Math.max(1, Math.round((b64.length * 3) / 4 / 1024));
+  return { text: `${n.getAttr('natW')}×${n.getAttr('natH')} ${FEED_IMAGE_TYPES[sniffImageType(b64)] || 'image'}, ${kb} KB`, known: true };
+}
+
+/** What the refresh toast says a reading was: the Value row's text, per element. */
+function readingSummary(n) {
+  return n.getAttr('etype') === 'feedimage' ? feedImageValueText(n).text : n.getAttr(feedValueAttr(n));
+}
+
 /** Wire what feedRowHTML rendered. */
 function bindFeedRow(bind, n, prefix) {
-  bind(`p${prefix}Feed`, () => openFeedPicker(n));
+  // A feed image's picker is the image one: it checks the value IS a picture, and it
+  // offers an upload to a new feed. The other bindings take any value.
+  const mode = n.getAttr('etype') === 'feedimage' ? 'image' : 'bind';
+  bind(`p${prefix}Feed`, () => openFeedPicker(n, { mode }));
   bind(`p${prefix}Refresh`, async () => {
     const ok = await refreshFeedElements([n]);
     refreshProps();
     const name = n.getAttr('feedName') || 'Feed';
-    toast(ok ? `${name} = ${n.getAttr(feedValueAttr(n))}` : 'Could not read the feed');
+    toast(ok ? `${name} = ${readingSummary(n)}` : 'Could not read the feed');
   });
 }
 
@@ -445,6 +469,27 @@ export function refreshProps() {
     </details>
     <p class="hint">Lines are told apart by colour <b>and</b> by dash pattern — on a
       mono panel the colours all collapse to ink.</p>`;
+  } else if (etype === 'feedimage') {
+    // The Feed and Value rows first, as on every bound element, then the frame. No
+    // natural-size reset: the picture can change with every reading, so the frame is
+    // the only size the user owns. No unlink either (#24): a picture on the canvas
+    // always comes from a feed, so the way to a different picture is a different feed
+    // (Change, which can also upload one) or a new picture on this one.
+    const fiMin = MIN_WIDGET_H.feedimage;
+    html += feedRowHTML(n, 'Img', feedImageValueText(n)) + `
+    <div class="prop-row">
+      <span class="label">W</span><input type="number" id="pFiW" value="${n.getAttr('w')}" min="${fiMin}">
+      <span class="label">H</span><input type="number" id="pFiH" value="${n.getAttr('h')}" min="${fiMin}">
+    </div>
+    <label class="field"><span class="label">Picture</span>
+      <select id="pFiFit">${FEED_IMAGE_FITS.map((f) =>
+        `<option value="${f.id}"${(n.getAttr('fit') || 'contain') === f.id ? ' selected' : ''} title="${escapeAttr(f.hint)}">${escapeHtml(f.label)}</option>`).join('')}
+      </select></label>
+    <p class="hint">Each picture on the feed is placed into this frame, re-read on every
+      push and every live take. An empty feed shows as a question mark. Dithered to the
+      panel palette on render, so there is no ink swatch.</p>
+    ${isFeedLinked(n) ? `<button type="button" class="btn btn-sm btn-block" id="pFiReplace">Replace the picture on this feed…</button>
+    <input type="file" id="pFiReplaceFile" accept="image/*" hidden>` : ''}`;
   } else if (isWidget(n)) {
     // Every widget type above has its own branch, so this is unreachable today. It
     // stays as the backstop the comment on WIDGET_TYPES asks for: without it a newly
@@ -466,7 +511,13 @@ export function refreshProps() {
     </div>
     <label class="check-row"><input type="checkbox" id="pLock" checked> Lock aspect ratio</label>
     <button type="button" class="btn btn-sm btn-block" id="pImgReset">Reset to ${natW}×${natH}</button>
-    <p class="hint">Dithered to the panel palette on render — no ink swatch.</p>`;
+    <p class="hint">Dithered to the panel palette on render — no ink swatch.</p>
+    <!-- An image from before #36: its picture is embedded in this document. Pictures now
+         live on Adafruit IO feeds, so the way forward is to move this one onto a feed,
+         where it becomes the same frame every other picture is. -->
+    <p class="hint">This picture is stored inside the layout. Pictures now live on
+      Adafruit IO feeds: move it to a new feed, or use one already on a feed instead.</p>
+    <button type="button" class="btn btn-sm btn-block" id="pImgMove">${linkGlyph} Move to an Adafruit IO feed…</button>`;
   } else {
     html += `
     <div class="prop-row">
@@ -479,7 +530,7 @@ export function refreshProps() {
   // Images carry their own colors; everything else gets an ink swatch. For an
   // indicator that ink is the lamp's outline (its fill comes from On/Off above);
   // same for a battery, whose fill comes from the conditions.
-  html += (etype === 'image' ? ''
+  html += (etype === 'image' || etype === 'feedimage' ? ''
     : `<span class="label">${etype === 'indicator' || etype === 'battery' ? 'Outline' : 'Ink'}</span>`
       + swatchHTML(elementColor(n), undefined,
           etype === 'battery' ? neutralShades() : PALETTES[display.type]))
@@ -563,7 +614,23 @@ export function refreshProps() {
   });
 
   // The Feed + Value rows on every feed-bound element, wired from one place.
-  ['Lbl', 'Ind', 'Bat', 'Ga'].forEach((prefix) => bindFeedRow(bind, n, prefix));
+  ['Lbl', 'Ind', 'Bat', 'Ga', 'Img'].forEach((prefix) => bindFeedRow(bind, n, prefix));
+
+  // An image from before #36: the picker uploads its picture to a new feed (or binds a
+  // feed already holding one) and converts it in place. A cancelled picker leaves it as is.
+  bind('pImgMove', () => openFeedPicker(n, { mode: 'image' }));
+
+  // The feed image's frame. Width and height are independent on purpose (see select()).
+  const fiMin = MIN_WIDGET_H.feedimage;
+  bind('pFiW', (e) => { n.setAttr('w', Math.max(fiMin, Math.round(+e.target.value) || fiMin)); rebuildWidget(n); });
+  bind('pFiH', (e) => { n.setAttr('h', Math.max(fiMin, Math.round(+e.target.value) || fiMin)); rebuildWidget(n); });
+  bind('pFiFit', (e) => { n.setAttr('fit', e.target.value); rebuildWidget(n); });
+  bind('pFiReplace', () => $('pFiReplaceFile').click());
+  $('pFiReplaceFile')?.addEventListener('change', (e) => {
+    const file = e.target.files[0];
+    e.target.value = '';
+    if (file) replaceFeedPicture(n, file);
+  });
 
   // Prefix and suffix fire per keystroke, so they must not call refreshProps() —
   // it replaces #propBody wholesale and would take focus with it.

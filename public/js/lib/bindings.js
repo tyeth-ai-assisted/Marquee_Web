@@ -15,12 +15,19 @@
  */
 
 import { FEED_ETYPES, valueAttrOf } from './scene.js';
+import { parseFeedImage } from './feedimage.js';
 
 /** IO's own ceiling on a raw (unaggregated) chart pull. */
 export const CHART_RAW_MAX = 640;
 
 /** Does this element take a feed's last value? */
 export const readsLast = (el) => !!el && FEED_ETYPES.includes(el.etype) && !!el.feedKey;
+
+/**
+ * Does this element take a feed's last value as a PICTURE? Read like any last value (one
+ * GET, filed under the feed key), but the host decodes it before it can draw.
+ */
+export const readsImage = (el) => !!el && el.etype === 'feedimage' && !!el.feedKey;
 
 /** Does this element take a window of feed history? */
 export const readsChart = (el) => !!el && el.etype === 'linechart' && Array.isArray(el.feeds) && el.feeds.length > 0;
@@ -59,7 +66,7 @@ export function feedReads(doc) {
   let datetime = false;
   for (const el of doc?.elements || []) {
     if (readsTime(el)) datetime = true;
-    if (readsLast(el) && !reads.has(el.feedKey)) {
+    if ((readsLast(el) || readsImage(el)) && !reads.has(el.feedKey)) {
       reads.set(el.feedKey, { id: el.feedKey, feed: el.feedKey, kind: 'last' });
     }
     if (readsChart(el)) {
@@ -149,6 +156,11 @@ export function mergeSeries(prev, feeds, fetched, cap) {
  *
  * Read ids are the ones feedReads() hands out. A reading that is missing or null leaves the
  * element's saved value alone: one flaky read never blanks a panel.
+ *
+ * A feed image's reading becomes its `src`, as the data URL of the picture it holds, for
+ * the host to decode. A value that is not a picture is left out like a failed read, so
+ * the frame keeps its feed reference and draws the "no picture" placeholder. A saved
+ * document has no picture of its own to fall back on (#36).
  */
 export function bakeReadings(doc, readings = {}) {
   const last = readings.last || {};
@@ -157,6 +169,10 @@ export function bakeReadings(doc, readings = {}) {
   const elements = (doc?.elements || []).map((el) => {
     if (readsLast(el) && has(last, el.feedKey)) {
       return { ...el, [valueAttrOf(el.etype)]: String(last[el.feedKey]) };
+    }
+    if (readsImage(el) && has(last, el.feedKey)) {
+      const parsed = parseFeedImage(last[el.feedKey]);
+      return parsed.ok ? { ...el, src: parsed.dataUrl } : el;
     }
     if (readsChart(el)) {
       const win = chartWindow(el);

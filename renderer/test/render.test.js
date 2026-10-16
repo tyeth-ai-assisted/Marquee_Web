@@ -82,6 +82,22 @@ test('an image is decoded from its data URL; an undecodable one is left out', as
   assert.equal(broken.sha, blank.sha);
 });
 
+test('a feed image draws the picture read from its feed, and its placeholder without one (#36)', async () => {
+  const frame = scene([{ etype: 'feedimage', x: 0, y: 0, w: 40, h: 40, fit: 'stretch', feedKey: 'cam', src: 'feed:cam' }]);
+  const b64 = PIXEL.slice(PIXEL.indexOf(',') + 1);
+  assert.deepEqual(plan({ doc: frame }).reads, [{ id: 'cam', feed: 'cam', kind: 'last' }]);
+  const blank = await render({ doc: scene([]), display });
+  const empty = await render({ doc: frame, display });
+  const notAPicture = await render({ doc: frame, readings: { last: { cam: '21.5' } }, display });
+  const drawn = await render({ doc: frame, readings: { last: { cam: b64 } }, display });
+  assert.notEqual(empty.sha, blank.sha, 'an empty frame is drawn, not left out');
+  assert.equal(notAPicture.sha, empty.sha);
+  assert.notEqual(drawn.sha, empty.sha);
+  // The reference is never fetched, whatever it says.
+  const hostile = scene([{ etype: 'feedimage', x: 0, y: 0, w: 40, h: 40, feedKey: '', src: 'http://169.254.169.254/' }]);
+  assert.equal((await render({ doc: hostile, display })).sha, empty.sha);
+});
+
 test('the display decides the palette: mono comes out 1 bit per pixel', async () => {
   const out = await render({ doc: EVERYTHING, display: { ...display, type: 'mono' }, now: NOON });
   assert.equal(header(out.base64).bpp, 1);

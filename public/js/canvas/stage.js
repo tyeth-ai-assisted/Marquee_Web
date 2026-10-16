@@ -13,6 +13,7 @@ import { Konva } from './konva.js';
 import { display, logicalDims, MODE_LABELS, PALETTES, paletteBackground } from './palette.js';
 import { $, toast } from '../core/util.js';
 import { renderBitmap } from './render.js';
+import { rebuildWidget } from '../lib/scene.js';
 
 /** Resolve a design token to a concrete value — the canvas can't use var(). */
 function cssVar(name, fallback) {
@@ -148,6 +149,14 @@ export function updateDims() {
 export function syncDisplayBackground(color = display.background) {
   display.background = paletteBackground(color);
   bgRect.fill(display.background);
+  // A feed image with no picture draws its placeholder in colours picked against the
+  // page, so it has to be redrawn when the page changes under it. It is handed the live
+  // descriptor first, as elements.js's rebuildWidget does: a duplicated frame holds a copy.
+  layer.find('.element').forEach((n) => {
+    if (n.getAttr('etype') !== 'feedimage' || n.getAttr('imageObj')) return;
+    n.setAttr('display', display);
+    rebuildWidget(Konva, n);
+  });
   const box = $('bgSwatches');
   if (box) {
     box.innerHTML = PALETTES[display.type].map((c) =>
@@ -271,8 +280,39 @@ export function captureClean({ onDeselect, onReselect } = {}) {
   onDeselect?.();
   applyZoom(1);
   gridLayer.visible(false);
-  const canvas = stage.toCanvas({ pixelRatio: 1 });
+  const canvas = withSoftwareRaster(() => stage.toCanvas({ pixelRatio: 1 }));
   applyZoom(prevZoom);       // restores zoom and redraws the grid per its setting
   onReselect?.();
   return canvas;
 }
+
+/**
+ * Run `fn` with every 2D context it creates pinned to the CPU rasterizer.
+ *
+ * The capture has to be DETERMINISTIC: the live take compares each render byte-for-byte
+ * with the last one it published, and only a difference goes to the feed and onto the
+ * glass. Chrome does not promise that. It scales images and anti-aliases strokes
+ * differently on the GPU than in software (measured on 2026-10-06: a 550px picture
+ * scaled into a 259px frame differs in 27% of its channel bytes between the two paths;
+ * text is identical), and it moves canvases between the two on its own — readback
+ * pressure, GPU memory, a tab in the background. stage.toCanvas() builds a fresh canvas
+ * per capture, so two captures of an untouched scene could land on different paths,
+ * differ in a few hundred edge pixels, dither to a different BMP, and publish a "change"
+ * the board then redraws. Seen as spurious live-take publishes on an idle canvas.
+ *
+ * `willReadFrequently` is the one documented switch that forces the software path, and
+ * this capture is read back exactly once anyway, so it is the right setting here on its
+ * own merits. Konva 10 accepts it on its canvases but toCanvas() does not pass it
+ * through, hence the scoped patch of getContext rather than an option. Scoped: the
+ * stage's own on-screen canvases are untouched, so editing stays GPU-fast.
+ */
+function withSoftwareRaster(fn) {
+  const proto = globalThis.HTMLCanvasElement?.prototype;
+  if (!proto) return fn();
+  const original = proto.getContext;
+  proto.getContext = function (type, attrs) {
+    return original.call(this, type, type === '2d' ? { ...(attrs || {}), willReadFrequently: true } : attrs);
+  };
+  try { return fn(); } finally { proto.getContext = original; }
+}
+

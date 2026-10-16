@@ -11,7 +11,7 @@ import { editorOpts, drawGrid, applyZoom, fitZoom, zoom, showDitherPreview, hide
 import { select, refreshProps, duplicateSelected } from '../canvas/selection.js';
 import {
   addLabel, addDivider, addLineChart, addGauge, addIndicator, addBattery, addDatetime,
-  loadImageFile, applyTemplate,
+  applyTemplate,
 } from '../canvas/elements.js';
 import { display } from '../canvas/palette.js';
 import { refreshFeedElements } from '../device/feeds.js';
@@ -248,11 +248,7 @@ export function initA7({ onEnter }) {
     if (!ok) toast('Could not read the time from Adafruit IO');
   });
   $('duplicateBtn').addEventListener('click', duplicateSelected);
-  $('addImageBtn').addEventListener('click', () => $('imgInput').click());
-  $('imgInput').addEventListener('change', (e) => {
-    loadImageFile(e.target.files[0]);
-    e.target.value = '';
-  });
+  // "Image from Adafruit IO Feed" is wired in feeds.js, beside the picker it opens.
 
   $$('[data-template]').forEach((btn) =>
     btn.addEventListener('click', () => applyTemplate(btn.dataset.template)));

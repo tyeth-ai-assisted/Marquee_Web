@@ -36,7 +36,14 @@ export const resetCounter = () => { counter = 0; };
  * Smallest authored width per widget, used when baking a transform back into
  * attrs and by the inspector's size inputs. Anything unlisted floors at 40.
  */
-export const MIN_WIDGET_W = { indicator: 6, battery: 20 };
+export const MIN_WIDGET_W = { indicator: 6, battery: 20, feedimage: 8 };
+
+/**
+ * The widgets whose HEIGHT is authored too, with its floor. Every other widget derives
+ * its height from its width (a gauge is round, a lamp is square), so the transform bake
+ * only writes `h` for the etypes listed here.
+ */
+export const MIN_WIDGET_H = { linechart: 30, feedimage: 8 };
 
 export function elementColor(n) { return isWidget(n) ? n.getAttr('ink') : n.fill(); }
 
@@ -61,6 +68,10 @@ function randTemp() { return Math.round(45 + Math.random() * 45); }
 // ---------- widget dispatch -------------------------------------------------
 
 export function rebuildWidget(n) {
+  // A feed image picks its placeholder colours against the page. It is handed the live
+  // descriptor on every rebuild, because clone() (Duplicate) deep-copies plain-object
+  // attrs and would otherwise leave the copy reading a snapshot of the page.
+  if (n.getAttr('etype') === 'feedimage') n.setAttr('display', display);
   if (!scene.rebuildWidget(Konva, n)) return;
   if (tr.nodes().includes(n)) tr.forceUpdate();
 }
@@ -204,9 +215,11 @@ export function addBattery(attrs = {}) {
 }
 
 // ---------- image -----------------------------------------------------------
-
-const IMG_MAX_BYTES = 25 * 1024 * 1024; // 25 MB per file
-const IMG_TYPES = ['image/png', 'image/jpeg', 'image/bmp', 'image/x-ms-bmp'];
+//
+// An image whose picture is embedded in the document. Nothing in the editor places one
+// any more: every new picture goes on an Adafruit IO feed (#36, see feed image below).
+// Documents from before that still hold them, so they still load, draw and render, and
+// the inspector offers to move each one onto a feed.
 
 export function addImage(imageObj, attrs = {}) {
   return place(scene.createImage(Konva, imageObj, attrs, display, {
@@ -221,28 +234,127 @@ function place(node) {
   return node;
 }
 
-/** Load a File into an <img>, enforcing type + size, then place it. */
-export function loadImageFile(file) {
-  if (!file) return;
-  const typeOk = IMG_TYPES.includes(file.type) || /\.(png|jpe?g|bmp)$/i.test(file.name);
-  if (!typeOk) { toast('Only PNG, JPEG and BMP images are allowed'); return; }
-  if (file.size > IMG_MAX_BYTES) {
-    toast(`Image is ${(file.size / 1048576).toFixed(1)} MB — 25 MB limit`);
-    return;
-  }
-  const reader = new FileReader();
-  reader.onload = () => {
+// ---------- feed image ------------------------------------------------------
+//
+// Every picture placed on the canvas lives on an Adafruit IO feed (#36). The element
+// is built by lib/scene.js; what is the editor's here is DECODING: the feed's value
+// becomes an <img> in `imageObj`, and `src` keeps the data URL it came from so an
+// unchanged value is not decoded twice. Neither is saved, since serializeElement()
+// writes the feed reference instead.
+
+/**
+ * Where a decode in flight for each node can be awaited. A caller photographing the
+ * canvas straight after a load must not capture the frame before its picture arrives.
+ */
+const feedImageLoads = new WeakMap();
+
+/** Resolves once the picture `setFeedImageSrc()` last started decoding is in. */
+export function feedImageSettled(g) {
+  return feedImageLoads.get(g) || Promise.resolve(true);
+}
+
+/**
+ * Decode a data URL into an <img>, or null when the browser cannot. parseFeedImage() only
+ * checks the signature, so a truncated file passes it and fails here. Callers that are
+ * about to change the canvas on the strength of a picture decode it FIRST.
+ */
+export function decodeImage(dataUrl) {
+  return new Promise((resolve) => {
     const img = new Image();
-    img.onload = () => {
-      const node = addImage(img, { src: reader.result });
-      select(node);
-      toast(`Placed ${img.width}×${img.height} image`);
-    };
-    img.onerror = () => toast('Could not decode that image');
-    img.src = reader.result;
-  };
-  reader.onerror = () => toast('Could not read that file');
-  reader.readAsDataURL(file); // data URL so it round-trips through save/load
+    img.onload = () => resolve(img);
+    img.onerror = () => resolve(null);
+    img.src = dataUrl;
+  });
+}
+
+/**
+ * Which binding a frame is on, as a counter. Bumped by bindFeedImage() on every bind and
+ * captured by the asynchronous paths (a feed read, a decode) when they start. A result
+ * that comes back under a different generation belongs to a binding that no longer
+ * exists and is dropped: a frame rebound from feed A to feed B while A's read was in
+ * flight must never end up showing A's picture.
+ */
+export function feedImageGen(g) { return g.getAttr('feedGen') || 0; }
+
+/** Point a frame at a feed, invalidating whatever was in flight for it. */
+export function bindFeedImage(g, feedKey, feedName) {
+  g.setAttr('feedKey', feedKey || '');
+  g.setAttr('feedName', feedName || '');
+  g.setAttr('feedGen', feedImageGen(g) + 1);
+}
+
+/** Put a decoded picture into the frame, synchronously. */
+export function applyFeedImage(g, img, dataUrl) {
+  g.setAttr('imageObj', img);
+  g.setAttr('natW', img.width);
+  g.setAttr('natH', img.height);
+  g.setAttr('src', dataUrl);
+  rebuildWidget(g);
+}
+
+/**
+ * Show the "no picture" placeholder: the feed is empty, or holds something that is not
+ * a picture. Not used for a failed READ, which keeps the previous picture like every
+ * other binding does.
+ */
+export function clearFeedImage(g) {
+  if (!g.getAttr('imageObj') && !g.getAttr('src')) return;
+  g.setAttr('imageObj', null);
+  g.setAttr('natW', null);
+  g.setAttr('natH', null);
+  g.setAttr('src', null);
+  rebuildWidget(g);
+}
+
+/**
+ * Decode a data URL into the frame. Resolves true once the picture is showing, false
+ * when it could not be decoded or no longer belongs. In that case the previous picture
+ * is LEFT IN PLACE, matching refreshFeedElements' rule that a failed read never blanks
+ * an element.
+ *
+ * Only the newest call per node lands, and a superseded call resolves with the NEWEST
+ * call's outcome rather than its own. The caller is a take about to photograph the
+ * canvas, so "done" has to mean the frame shows the latest picture, not that this
+ * particular decode finished.
+ */
+export function setFeedImageSrc(g, dataUrl) {
+  const gen = feedImageGen(g);
+  const p = decodeImage(dataUrl).then((img) => {
+    if (feedImageLoads.get(g) !== p) return feedImageLoads.get(g) || false;
+    if (!img || feedImageGen(g) !== gen || !g.getLayer()) return false;
+    applyFeedImage(g, img, dataUrl);
+    return true;
+  });
+  feedImageLoads.set(g, p);
+  return p;
+}
+
+/**
+ * A feed image frame. `attrs.imageObj` (with `attrs.src`, its data URL) shows a picture
+ * already in hand at once; otherwise the frame shows the placeholder until the feed is read.
+ */
+export function addFeedImage(attrs = {}) {
+  const g = place(scene.createFeedImage(Konva, attrs, display, {
+    draggable: true, name: 'element', id: nextId(),
+  }));
+  if (attrs.imageObj && attrs.src) g.setAttr('src', attrs.src);
+  return g;
+}
+
+/**
+ * Turn an image from before #36 (one whose picture is embedded in the document) into a
+ * feed image in place: same spot, same box, same stacking. Used once its picture has been
+ * uploaded to a feed, or the user has picked a feed for it instead. The frame is the box
+ * the user had already sized, so nothing on the canvas moves.
+ */
+export function imageToFeedImage(node, attrs = {}) {
+  const g = addFeedImage({
+    x: node.x(), y: node.y(), w: Math.round(node.width()), h: Math.round(node.height()),
+    ...attrs,
+  });
+  g.zIndex(node.zIndex());
+  node.destroy();
+  return g;
 }
 
 // ---------- shared element wiring -------------------------------------------
@@ -273,8 +385,9 @@ export function wireNode(node) {
       // inline so adding a widget doesn't mean editing a ternary.
       const minW = MIN_WIDGET_W[node.getAttr('etype')] ?? 40;
       node.setAttr('w', Math.max(minW, Math.round(node.getAttr('w') * node.scaleX())));
-      if (node.getAttr('etype') === 'linechart')
-        node.setAttr('h', Math.max(30, Math.round(node.getAttr('h') * node.scaleY())));
+      const minH = MIN_WIDGET_H[node.getAttr('etype')];
+      if (minH !== undefined)
+        node.setAttr('h', Math.max(minH, Math.round(node.getAttr('h') * node.scaleY())));
       rebuildWidget(node);
     } else if (node.getAttr('etype') === 'image') {
       node.width(Math.max(1, Math.round(node.width() * node.scaleX())));
@@ -423,6 +536,9 @@ export function remapColorsToPalette() {
   syncDisplayBackground();
   layer.find('.element').forEach((n) => {
     if (n.getAttr('etype') === 'image') return; // dithered at render time, no single ink
+    // Same for a feed image's picture. Its placeholder is drawn in palette colours picked
+    // at build time, so it is rebuilt to pick up the new palette.
+    if (n.getAttr('etype') === 'feedimage') { rebuildWidget(n); return; }
     // A text box's background is a second colour beside its ink; '' (none) stays none.
     if (n.getAttr('background')) n.setAttr('background', nearest(n.getAttr('background')));
     // An indicator carries THREE colors, so the single-color elementColor /

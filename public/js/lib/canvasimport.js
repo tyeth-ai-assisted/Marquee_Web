@@ -14,11 +14,13 @@
  */
 
 import { PALETTES, logicalDimsOf, isHexColor } from './palette.js';
+import { feedImageRef } from './feedimage.js';
 
 /** Every etype deserialize() has a factory for. Anything else would silently load as
  *  a label, which is worse than saying so and leaving it out. */
 export const KNOWN_ETYPES = new Set([
   'label', 'divider', 'image', 'linechart', 'gauge', 'indicator', 'battery', 'datetime',
+  'feedimage',
 ]);
 
 const ROTATIONS = new Set([0, 90, 180, 270]);
@@ -100,6 +102,15 @@ export function validateCanvasDoc(text) {
       warnings.push(`${at} is an image without embedded data and was skipped.`);
       return;
     }
+    // A feed image's picture lives on its feed, so whatever `src` the file carries is
+    // replaced by the feed reference. That covers base64 from a build before #36, which
+    // would only be dropped on the next save anyway, and a URL, which is never fetched.
+    // The frame survives even without a feed and shows as empty.
+    if (el.etype === 'feedimage') {
+      const { natW, natH, ...frame } = el;
+      el = { ...frame, src: feedImageRef(el.feedKey) };
+      if (!el.feedKey) warnings.push(`${at} is an image with no Adafruit IO feed; it will show as an empty frame.`);
+    }
     elements.push(el);
   });
   if (errors.length) return { ok: false, errors, warnings, doc: null };
@@ -135,6 +146,7 @@ const SIZE_KEYS = {
   datetime: ['fontSize', 'width', 'padding'],
   divider: ['width', 'height'],
   image: ['w', 'h'],
+  feedimage: ['w', 'h'],
   linechart: ['w', 'h', 'axisFontSize'],
   gauge: ['w', 'ringWidth'],
   indicator: ['w'],

@@ -531,8 +531,10 @@
           <button type="button" class="btn prop-btn" id="addDatetimeBtn"><span class="tile">◷</span>Date &amp; time</button>
           <button type="button" class="btn prop-btn" id="addChart"><span class="tile">∿</span>Chart</button>
           <button type="button" class="btn prop-btn" id="addGaugeBtn"><span class="tile">◠</span>Gauge</button>
-          <button type="button" class="btn prop-btn" id="addImageBtn"><span class="tile">▣</span>Image</button>
-          <input type="file" id="imgInput" accept="image/png,image/jpeg,image/bmp,.png,.jpg,.jpeg,.bmp" hidden>
+          <!-- Every picture on the canvas lives on an Adafruit IO feed (#36): pick a feed that
+               holds one (a camera project's latest frame, say), or upload a picture to a new
+               feed. Re-read on every push and every live take, like linked text. -->
+          <button type="button" class="btn prop-btn" id="addFeedImageBtn"><span class="tile">▣</span>Image from Adafruit IO Feed</button>
           <button type="button" class="btn prop-btn" id="addIndicatorBtn"><span class="tile">◉</span>Indicator</button>
           <button type="button" class="btn prop-btn" id="addBatteryBtn"><span class="tile">▰</span>Battery</button>
           <button type="button" class="btn prop-btn" id="addDivider"><span class="tile">—</span>Divider</button>
@@ -1050,8 +1052,26 @@
 <div class="modal-backdrop hidden" id="feedDataModal">
   <div class="modal" role="dialog" aria-modal="true" aria-label="Select a feed">
     <div class="modal-head">
-      <h4>Select a feed</h4>
+      <h4 id="feedDataTitle">Select a feed</h4>
       <button type="button" class="modal-close" id="feedDataClose" aria-label="Close feed picker">✕</button>
+    </div>
+    <!-- Image mode only (see showImageMode in feeds.js): a picture uploaded to a NEW feed,
+         created with history off. The feed list below is the other way in. -->
+    <div id="feedImageUpload" class="hidden" style="display:flex; flex-direction:column; gap:6px; margin-bottom:10px">
+      <span class="label">Upload a picture to a new feed</span>
+      <div class="prop-row">
+        <button type="button" class="btn btn-sm" id="feedImageChoose">Choose file…</button>
+        <span class="mono" id="feedImageFileStatus" style="flex:1; min-width:0; font-size:12px; opacity:.8">No file chosen</span>
+      </div>
+      <input type="file" id="feedImageFile" accept="image/*" hidden>
+      <div class="prop-row">
+        <input type="text" id="feedImageName" placeholder="New feed name" autocomplete="off" style="flex:1; min-width:0">
+        <button type="button" class="btn btn-sm btn-primary" id="feedImageUploadBtn" disabled>Upload</button>
+      </div>
+      <p class="hint">Shrunk to fit the panel if it is bigger, and kept under Adafruit IO's
+        512 KB limit for a feed with history off.</p>
+      <div class="hr" style="margin:4px 0"></div>
+      <span class="label">Or use a picture already on a feed</span>
     </div>
     <label class="check-row"><input type="checkbox" id="feedSharedToggle"> Feeds shared with me</label>
     <input type="text" id="feedFilter" placeholder="Filter feeds…" autocomplete="off">

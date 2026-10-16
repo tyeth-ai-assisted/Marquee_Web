@@ -150,3 +150,33 @@ test('fitDoc: a text box padding scales with its type', () => {
   assert.equal(out.elements[0].background, '#2F2429');
   assert.equal(out.elements[1].padding, 4);
 });
+
+test('a feed image imports as its frame: whatever src it carries becomes the feed reference (#36)', () => {
+  const frame = { etype: 'feedimage', x: 0, y: 0, w: 100, h: 80, fit: 'contain', feedKey: 'doorbell', feedName: 'Doorbell' };
+  const r = validateCanvasDoc(docText({ elements: [
+    { ...frame, src: 'feed:doorbell' },
+    { ...frame, src: 'data:image/jpeg;base64,/9j/AAAA', natW: 4, natH: 3 },   // a build before #36
+    { ...frame, src: 'https://example.com/latest.jpg' },                     // never fetched
+    { ...frame },
+    { ...frame, feedKey: '', feedName: '' },
+  ] }));
+  assert.equal(r.ok, true);
+  assert.equal(r.doc.elements.length, 5, 'every frame survives');
+  for (const el of r.doc.elements.slice(0, 4)) {
+    assert.equal(el.src, 'feed:doorbell');
+    assert.equal('natW' in el, false);
+  }
+  assert.equal(r.doc.elements[4].src, 'feed:');
+  assert.equal(r.warnings.length, 1);
+  assert.match(r.warnings[0], /Element 5 .*no Adafruit IO feed/);
+});
+
+test('fitDoc scales a feed image frame like a static image', () => {
+  const doc = { version: 1, display: {}, elements: [
+    { etype: 'feedimage', x: 0, y: 0, w: 148, h: 64, fit: 'cover', feedKey: 'cam' },
+  ] };
+  const out = fitDoc(doc, { w: 296, h: 128 }, { w: 148, h: 64 });
+  assert.equal(out.elements[0].w, 74);
+  assert.equal(out.elements[0].h, 32);
+  assert.equal(out.elements[0].fit, 'cover');
+});

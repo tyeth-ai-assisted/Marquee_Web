@@ -28,7 +28,7 @@ runInThisContext(readFileSync(new URL('../public/js/vendor/konva.js', import.met
 const { Konva } = globalThis;
 
 const {
-  createElement, createImage, serializeElement, buildScene, rebuildWidget,
+  createElement, createImage, serializeElement, buildScene, rebuildWidget, feedImagePlaceholderColors,
 } = await import('../public/js/lib/scene.js');
 
 const display = { width: 128, height: 296, rotation: 0, panel: 'magtag', type: 'tricolor', background: '#F2F4EF' };
@@ -55,6 +55,8 @@ const ELEMENTS = [
   { etype: 'battery', x: 250, y: 4, w: 30, ink: INK, showPct: true,
     conds: [{ op: 'lt', cmp: '20', color: INK }], defaultShade: INK,
     feedKey: 'bat', feedName: 'Battery', feedValue: '80' },
+  { etype: 'feedimage', x: 6, y: 70, w: 90, h: 50, fit: 'cover', feedKey: 'alice/doorbell', feedName: 'Doorbell',
+    src: 'feed:alice/doorbell' },
 ];
 
 for (const el of ELEMENTS) {
@@ -165,4 +167,66 @@ test('buildScene: images come from the host, by element index', () => {
     .map((n) => n.getAttr('etype'));
   assert.deepEqual(kinds({}), ['label']);   // undecoded images are left out
   assert.deepEqual(kinds({ 2: { width: 10, height: 10 } }), ['label', 'image']);
+});
+
+// ---- feed image (#36) ----
+
+const frame = { etype: 'feedimage', x: 0, y: 0, w: 60, h: 40, fit: 'contain', feedKey: 'cam', feedName: 'Cam', src: 'feed:cam' };
+const childTypes = (g) => g.getChildren().map((c) => c.getClassName());
+
+test('feedimage: the saved src names the feed, never the picture', () => {
+  const pic = { width: 120, height: 60 };
+  const node = createElement(Konva, { ...frame, src: 'data:image/png;base64,iVBORw0KGgoAAAA', natW: 120, natH: 60, imageObj: pic }, display);
+  assert.equal(node.getAttr('imageObj'), pic);
+  const saved = serializeElement(node);
+  assert.equal(saved.src, 'feed:cam');
+  assert.equal('natW' in saved, false);
+  assert.equal('natH' in saved, false);
+  assert.deepEqual(saved, frame);
+});
+
+test('feedimage: with a picture it draws the picture fitted to the frame', () => {
+  const node = createElement(Konva, { ...frame, imageObj: { width: 120, height: 40 } }, display);
+  assert.deepEqual(childTypes(node), ['Rect', 'Image']);
+  const img = node.getChildren()[1];
+  // 120x40 inside 60x40, contained: 60x20, centred vertically
+  assert.deepEqual([img.x(), img.y(), img.width(), img.height()], [0, 10, 60, 20]);
+});
+
+test('feedimage: without a picture it draws the outlined question mark (#24)', () => {
+  const node = createElement(Konva, frame, display);
+  assert.deepEqual(childTypes(node), ['Rect', 'Rect', 'Text']);
+  const [, outline, mark] = node.getChildren();
+  assert.equal(mark.text(), '?');
+  assert.equal(outline.stroke(), INK);
+  assert.equal(mark.fill(), RED, 'red where the panel has red');
+  // Too small for a legible mark: the outline alone.
+  assert.deepEqual(childTypes(createElement(Konva, { ...frame, w: 6, h: 6 }, display)), ['Rect', 'Rect']);
+});
+
+test('feedimage placeholder: always contrasts with the page, whatever its colour', () => {
+  assert.deepEqual(feedImagePlaceholderColors({ type: 'tricolor', background: '#F2F4EF' }), { outline: INK, mark: RED });
+  // A black page: the outline goes paper-white, so the frame cannot vanish into it.
+  assert.deepEqual(feedImagePlaceholderColors({ type: 'mono', background: INK }), { outline: '#F2F4EF', mark: '#F2F4EF' });
+  // A red page: the mark is not drawn red-on-red.
+  const onRed = feedImagePlaceholderColors({ type: 'tricolor', background: RED });
+  assert.notEqual(onRed.mark, RED);
+  assert.notEqual(onRed.outline, RED);
+  // gray4 has no red; a dark grey page gets the paper.
+  assert.equal(feedImagePlaceholderColors({ type: 'gray4', background: '#70696B' }).outline, '#F2F4EF');
+});
+
+test('buildScene: a feed image is always drawn, with its picture when the host decoded one', () => {
+  const doc = { display, elements: [frame, { ...frame, x: 70 }] };
+  const els = buildScene(Konva, doc, { images: { 1: { width: 10, height: 10 } } }).group.getChildren().slice(1);
+  assert.deepEqual(els.map((n) => n.getAttr('etype')), ['feedimage', 'feedimage']);
+  assert.ok(!els[0].getAttr('imageObj'));
+  assert.deepEqual(childTypes(els[1]), ['Rect', 'Image']);
+});
+
+test('feedimage: an unsized frame is a third of the panel, centred', () => {
+  const node = createElement(Konva, { etype: 'feedimage', feedKey: 'cam' }, display);
+  // 296x128 landscape: 99 wide, 74 high
+  assert.deepEqual([node.getAttr('w'), node.getAttr('h')], [99, 74]);
+  assert.deepEqual([node.x(), node.y()], [Math.round((296 - 99) / 2), Math.round((128 - 74) / 2)]);
 });

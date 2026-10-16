@@ -4,13 +4,8 @@
  * happens in the page (lib/bitmap.js) and state lives in localStorage.
  */
 
-/**
- * IO datum size ceilings, in bytes of the base64 payload. We assume feed history
- * is OFF (the 512 KB ceiling) as the default setup; the 1 KB history-on tier is
- * recorded here for reference but is not what gating uses.
- */
-export const IO_MAX_HISTORY = 1024;
-export const IO_MAX_NO_HISTORY = 512 * 1024;
+// IO's datum size ceilings live in lib/, where the server renderer can reach them too.
+export { IO_MAX_HISTORY, IO_MAX_NO_HISTORY } from '../lib/iolimits.js';
 
 /**
  * The Adafruit IO host, for the whole app — feed reads, publishes, and the group

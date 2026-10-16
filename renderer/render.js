@@ -82,7 +82,10 @@ export function atTime(doc, { now = Date.now(), timeZone = 'UTC' } = {}) {
 }
 
 /**
- * Images arrive as data URLs inside the document; decoded here, by element index.
+ * Images arrive as data URLs inside the document; decoded here, by element index. A feed
+ * image's picture arrives the same way: bakeReadings() turns the feed's value into a data
+ * URL in its `src`, and a feed image whose feed was not read keeps its `feed:` reference,
+ * which is not decoded and draws as the empty frame.
  *
  * ONLY data URLs. skia-canvas's loadImage() would fetch an http(s) URL or read a file path,
  * and this document was written by a user: a src of `http://169.254.169.254/...` must never
@@ -92,7 +95,8 @@ export function atTime(doc, { now = Date.now(), timeZone = 'UTC' } = {}) {
 async function decodeImages(doc) {
   const images = {};
   await Promise.all((doc.elements || []).map(async (el, i) => {
-    if (el.etype !== 'image' || typeof el.src !== 'string' || !/^data:image\//i.test(el.src)) return;
+    if (el.etype !== 'image' && el.etype !== 'feedimage') return;
+    if (typeof el.src !== 'string' || !/^data:image\//i.test(el.src)) return;
     try {
       const img = await loadImage(el.src);
       if (img.width * img.height <= MAX_IMAGE_PIXELS) images[i] = img;
